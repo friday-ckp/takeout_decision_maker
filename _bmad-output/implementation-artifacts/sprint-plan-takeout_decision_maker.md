@@ -68,7 +68,7 @@ totalStories: 58
 ## Sprint 1：单人核心决策流程
 
 **周期：** 2026-03-30 ~ 2026-04-10（2周）
-**状态：** not-started
+**状态：** done
 
 ### Sprint 目标
 
@@ -84,15 +84,15 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 1.1 | 项目骨架初始化与环境配置 | ARCH-01, ARCH-08 | 1 | not-started |
-| 1.2 | 数据库初始化脚本（DDL Migrations） | ARCH-01, ARCH-02 | 3 | not-started |
-| 1.3 | Express 后端骨架（路由/中间件/连接池） | ARCH-03 | 2 | not-started |
-| 1.4 | 前端静态文件框架（HTML/CSS/JS） | ARCH-07, NFR-10 | 2 | not-started |
-| 1.5 | 获取餐厅列表 API | FR-01 | 2 | not-started |
-| 1.6 | 餐厅列表页（前端） | FR-01 | 1 | not-started |
-| 1.7 | 空状态引导 | FR-00, UX-DR1 | 1 | not-started |
-| 1.8 | 添加单个餐厅 API | FR-05 | 2 | not-started |
-| 1.9 | 添加餐厅表单页（前端） | FR-05 | 2 | not-started |
+| 1.1 | 项目骨架初始化与环境配置 | ARCH-01, ARCH-08 | 1 | done |
+| 1.2 | 数据库初始化脚本（DDL Migrations） | ARCH-01, ARCH-02 | 3 | done |
+| 1.3 | Express 后端骨架（路由/中间件/连接池） | ARCH-03 | 2 | done |
+| 1.4 | 前端静态文件框架（HTML/CSS/JS） | ARCH-07, NFR-10 | 2 | done |
+| 1.5 | 获取餐厅列表 API | FR-01 | 2 | done |
+| 1.6 | 餐厅列表页（前端） | FR-01 | 1 | done |
+| 1.7 | 空状态引导 | FR-00, UX-DR1 | 1 | done |
+| 1.8 | 添加单个餐厅 API | FR-05 | 2 | done |
+| 1.9 | 添加餐厅表单页（前端） | FR-05 | 2 | done |
 
 **Epic 1（Sprint 1 部分）小计：16 pts**
 
@@ -102,15 +102,15 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 2.1 | 候选列表 API（含权重算法） | FR-03, FR-08 | 3 | not-started |
-| 2.2 | 每日配置 API（daily_config + 跨日重置） | FR-03, FR-14 | 2 | not-started |
-| 2.3 | 首页决策入口 | FR-01, UX-DR1 | 1 | not-started |
-| 2.4 | 模式选择页 | FR-02 | 2 | not-started |
-| 2.5 | 转盘候选数据构建（权重 + >16 勾选逻辑） | FR-03, UX-DR2 | 3 | not-started |
-| 2.6 | 转盘 Canvas 渲染 | FR-03, UX-DR3 | 2 | not-started |
-| 2.7 | 转盘旋转动画与结果逻辑 | FR-03 | 2 | not-started |
-| 2.8 | 结果页 — 单人转盘模式 | FR-15, UX-DR5 | 2 | not-started |
-| 2.9 | 决策历史记录 API（基础版） | FR-10 | 2 | not-started |
+| 2.1 | 候选列表 API（含权重算法） | FR-03, FR-08 | 3 | done |
+| 2.2 | 每日配置 API（daily_config + 跨日重置） | FR-03, FR-14 | 2 | done |
+| 2.3 | 首页决策入口 | FR-01, UX-DR1 | 1 | done |
+| 2.4 | 模式选择页 | FR-02 | 2 | done |
+| 2.5 | 转盘候选数据构建（权重 + >16 勾选逻辑） | FR-03, UX-DR2 | 3 | done |
+| 2.6 | 转盘 Canvas 渲染 | FR-03, UX-DR3 | 2 | done |
+| 2.7 | 转盘旋转动画与结果逻辑 | FR-03 | 2 | done |
+| 2.8 | 结果页 — 单人转盘模式 | FR-15, UX-DR5 | 2 | done |
+| 2.9 | 决策历史记录 API（基础版） | FR-10 | 2 | done |
 
 **Epic 2 小计：19 pts**
 

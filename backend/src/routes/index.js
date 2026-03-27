@@ -1,0 +1,14 @@
+const express = require('express');
+const router = express.Router();
+
+// health check
+router.get('/health', (req, res) => {
+  res.json({ code: 0, message: 'ok', data: { status: 'healthy' } });
+});
+
+router.use('/restaurants',  require('./restaurants'));
+router.use('/candidates',   require('./candidates'));
+router.use('/daily-config', require('./dailyConfig'));
+router.use('/history',      require('./history'));
+
+module.exports = router;
