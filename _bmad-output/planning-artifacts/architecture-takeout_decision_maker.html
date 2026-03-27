@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外卖点餐决策器 — 系统架构图 v0.5</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'PingFang SC', 'Helvetica Neue', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    padding: 32px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 40px;
+  }
+  .section {
+    margin-bottom: 48px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #94a3b8;
+    margin-bottom: 16px;
+    padding-left: 12px;
+    border-left: 3px solid #3b82f6;
+  }
+  .diagram-card {
+    background: #1e2130;
+    border: 1px solid #2d3348;
+    border-radius: 12px;
+    padding: 32px;
+    overflow-x: auto;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>外卖点餐决策器 — 系统架构</h1>
+<div class="subtitle">PRD v0.5 · 架构师：Winston · 2026-03-27</div>
+
+<!-- 1. 系统全景 -->
+<div class="section">
+  <div class="section-title">01 · 系统全景架构</div>
+  <div class="diagram-card">
+    <div class="mermaid">
+graph TB
+    subgraph CLIENT["🖥️ 客户端 (Browser)"]
+        direction TB
+        UI_HOME["首页 /"]
+        UI_DECIDE["模式选择 /decide"]
+        UI_WHEEL["转盘 /decide/wheel"]
+        UI_MINE["扫雷 /decide/minesweeper"]
+        UI_RESULT["结果页 /decide/result"]
+        UI_REST["餐厅管理 /restaurants"]
+        UI_HIST["历史记录 /history"]
+        UI_SET["设置 /settings"]
+        UI_LOBBY["等待室 /session/:token/lobby"]
+        UI_MULTI["多人决策 /session/:token/decide"]
+        WS_CLIENT["WebSocket Client"]
+    end
+
+    subgraph SERVER["⚙️ Node.js 服务端"]
+        direction TB
+        REST_API["REST API\n(Express)"]
+        WS_SERVER["WebSocket Server\n(ws / socket.io)"]
+        subgraph BIZ["业务逻辑层"]
+            CAND["候选集过滤器\n(心情/口味/历史排除/权重)"]
+            SESSION["会话管理器\n(快照/状态机/广播)"]
+            REPLAY["重玩次数控制\n(惰性跨日重置)"]
+            CLEAN["数据清理器\n(软删除/匿名用户 惰性)"]
+        end
+    end
+
+    subgraph DB["🗄️ MySQL 数据库"]
+        direction LR
+        T_USERS["users"]
+        T_REST["restaurants"]
+        T_REL["user_restaurant\n_relations"]
+        T_HIST["decision_history"]
+        T_DAILY["daily_config"]
+        T_SET["settings"]
+        T_SESSION["decision_sessions"]
+        T_PART["session_participants"]
+    end
+
+    ENV["🔐 环境变量\nDB_HOST / DB_USER\nDB_PASS / DB_NAME"]
+
+    CLIENT -->|HTTP REST| REST_API
+    WS_CLIENT <-->|WebSocket| WS_SERVER
+    REST_API --> BIZ
+    WS_SERVER --> SESSION
+    BIZ --> DB
+    ENV -->|连接配置| SERVER
+
+    style CLIENT fill:#1a2744,stroke:#3b82f6,color:#93c5fd
+    style SERVER fill:#1a2a1a,stroke:#22c55e,color:#86efac
+    style DB fill:#2a1a2a,stroke:#a855f7,color:#d8b4fe
+    style BIZ fill:#1e3a1e,stroke:#16a34a,color:#86efac
+    style ENV fill:#2a2a1a,stroke:#eab308,color:#fde047
+    </div>
+  </div>
+</div>
+
+<!-- 2. 数据模型关系 -->
+<div class="section">
+  <div class="section-title">02 · 数据模型 ER 关系</div>
+  <div class="diagram-card">
+    <div class="mermaid">
+erDiagram
+    users {
+        int id PK
+        varchar name
+        datetime created_at
+    }
+    restaurants {
+        int id PK
+        int user_id FK
+        varchar name
+        varchar category
+        varchar tags
+        text note
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+    user_restaurant_relations {
+        int id PK
+        int user_id FK
+        int restaurant_id FK
+        enum relation_type
+        datetime created_at
+    }
+    decision_history {
+        int id PK
+        int user_id FK
+        int restaurant_id FK
+        enum mode
+        varchar mood
+        varchar flavor_tags
+        datetime decided_at
+    }
+    daily_config {
+        int id PK
+        int user_id FK
+        date date
+        varchar mood
+        varchar flavor_tags
+        int replay_count
+    }
+    settings {
+        int id PK
+        int user_id FK
+        varchar key
+        text value
+    }
+    decision_sessions {
+        int id PK
+        int host_user_id FK
+        varchar share_token
+        enum mode
+        enum status
+        json candidate_snapshot
+        int result_restaurant_id FK
+        datetime created_at
+        datetime expires_at
+    }
+    session_participants {
+        int id PK
+        int session_id FK
+        int user_id FK
+        datetime joined_at
+    }
+
+    users ||--o{ restaurants : "owns"
+    users ||--o{ user_restaurant_relations : "has"
+    restaurants ||--o{ user_restaurant_relations : "in"
+    users ||--o{ decision_history : "records"
+    restaurants ||--o{ decision_history : "chosen"
+    users ||--o{ daily_config : "has"
+    users ||--o{ settings : "configures"
+    users ||--o{ decision_sessions : "hosts"
+    restaurants ||--o| decision_sessions : "result"
+    decision_sessions ||--o{ session_participants : "contains"
+    users ||--o{ session_participants : "joins"
+    </div>
+  </div>
+</div>
+
+<!-- 3. WebSocket 多人会话流 -->
+<div class="section">
+  <div class="section-title">03 · 多人决策 WebSocket 会话流</div>
+  <div class="diagram-card">
+    <div class="mermaid">
+sequenceDiagram
+    participant H as 🧑 发起人 (Host)
+    participant S as ⚙️ Server
+    participant DB as 🗄️ MySQL
+    participant G as 👥 受邀者 (Guests)
+
+    H->>S: POST /sessions (创建会话, 选择模式)
+    S->>DB: INSERT decision_sessions\n+ candidate_snapshot(快照)
+    S-->>H: { share_token, lobby_url }
+
+    H->>S: WS connect /session/:token
+    S-->>H: event: session_state(waiting, participants:[host])
+
+    G->>S: GET /session/:token (输入昵称)
+    S->>DB: INSERT users(临时) + session_participants
+    S-->>G: WS connect 成功
+    S-->>H: event: participant_joined { name }
+    S-->>G: event: session_state(waiting, participants:[...])
+
+    H->>S: WS event: start_deciding
+    S->>DB: UPDATE decision_sessions SET status=deciding
+    S-->>H: event: deciding_started
+    S-->>G: event: deciding_started
+
+    Note over H,G: 扫雷模式 — 先到先得
+
+    G->>S: WS event: cell_clicked { cell_index }
+    S->>S: 检查是否第一个有效点击\n(原子操作，忽略后续点击)
+    S->>DB: UPDATE decision_sessions\nSET result_restaurant_id
+    S-->>H: event: result_revealed { restaurant }
+    S-->>G: event: result_revealed { restaurant }
+
+    Note over H,G: 发起人确认结果
+
+    H->>S: WS event: confirm_result
+    S->>DB: INSERT decision_history\nUPDATE status=done
+    S-->>H: event: session_done
+    S-->>G: event: session_done (跳转结束页)
+    </div>
+  </div>
+</div>
+
+<!-- 4. 候选集过滤流程 -->
+<div class="section">
+  <div class="section-title">04 · 候选集构建流程</div>
+  <div class="diagram-card">
+    <div class="mermaid">
+flowchart TD
+    START([开始决策]) --> FETCH[查询 restaurants\nWHERE user_id=? AND deleted_at IS NULL]
+    FETCH --> BLACKLIST[排除黑名单\nuser_restaurant_relations\nrelation_type=blacklisted]
+    BLACKLIST --> HISTORY{开启历史排除?}
+    HISTORY -->|是| EXC_HIST[排除最近 N 天\n决策历史中的餐厅]
+    HISTORY -->|否| MOOD
+    EXC_HIST --> MOOD{选择了心情?}
+    MOOD -->|过滤型 😴😤| FILTER_MOOD[按 tags 过滤]
+    FILTER_MOOD --> CHECK_MIN{候选 ≥ 2?}
+    CHECK_MIN -->|否| FALLBACK[降级: 不过滤\n提示用户]
+    CHECK_MIN -->|是| FLAVOR
+    FALLBACK --> FLAVOR
+    MOOD -->|排序型 😊😐| SORT_MOOD[调整排序, 不缩小]
+    SORT_MOOD --> FLAVOR
+    MOOD -->|未选择| FLAVOR
+    FLAVOR{选择了口味?} -->|是| FILTER_FLAVOR[按 tags 过滤]
+    FILTER_FLAVOR --> CHECK_MIN2{候选 ≥ 2?}
+    CHECK_MIN2 -->|否| FALLBACK2[降级: 不过滤\n提示用户]
+    CHECK_MIN2 -->|是| WEIGHT
+    FALLBACK2 --> WEIGHT
+    FLAVOR -->|随意/未选| WEIGHT
+    WEIGHT[应用收藏权重\n收藏餐厅 × 2] --> MODE{决策模式}
+    MODE -->|转盘| WHEEL_CHECK{候选 > 16?}
+    WHEEL_CHECK -->|是| SELECT_UI[展示勾选界面\n用户手动确认]
+    WHEEL_CHECK -->|否| WHEEL[填充转盘 开始旋转]
+    SELECT_UI --> WHEEL
+    MODE -->|扫雷| MINE_CHECK{格子总数 > 12?}
+    MINE_CHECK -->|是| TRUNCATE[普通餐厅随机抽样\n补齐至 12 格上限]
+    MINE_CHECK -->|否| MINE[展示扫雷格子]
+    TRUNCATE --> MINE
+
+    style START fill:#3b82f6,color:#fff
+    style FALLBACK fill:#dc2626,color:#fff
+    style FALLBACK2 fill:#dc2626,color:#fff
+    style WHEEL fill:#22c55e,color:#fff
+    style MINE fill:#22c55e,color:#fff
+    </div>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1e3a5f',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#64748b',
+      secondaryColor: '#1e2a1e',
+      tertiaryColor: '#2a1a2a',
+      background: '#1e2130',
+      mainBkg: '#1e2130',
+      nodeBorder: '#475569',
+      clusterBkg: '#1a2133',
+      titleColor: '#f8fafc',
+      edgeLabelBackground: '#1e2130',
+      attributeBackgroundColorEven: '#1e2130',
+      attributeBackgroundColorOdd: '#252a3d',
+    },
+    er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100 },
+    sequence: { diagramMarginX: 20, diagramMarginY: 20, actorMargin: 80, messageMargin: 40 },
+    flowchart: { diagramPadding: 16, htmlLabels: true, curve: 'basis' },
+  });
+</script>
+</body>
+</html>
