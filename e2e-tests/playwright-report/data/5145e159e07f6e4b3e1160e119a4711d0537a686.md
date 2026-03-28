@@ -1,0 +1,129 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: 🍜
+      - text: 今天吃啥
+    - navigation [ref=e5]:
+      - button "首页" [ref=e6] [cursor=pointer]
+      - button "餐厅" [ref=e7] [cursor=pointer]
+      - button "历史" [ref=e8] [cursor=pointer]
+      - button "设置" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - generic "设置今日心情" [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]: 😊
+        - generic [ref=e13]: 开心
+      - button "添加餐厅" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+        - text: 添加餐厅
+  - generic [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19] [cursor=pointer]: ← 模式选择
+      - generic [ref=e20]: 🎡 转盘决策
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic: ▼
+          - generic "点击旋转" [ref=e24] [cursor=pointer]: ▶
+        - generic [ref=e26]: 今日剩余次数
+        - button "开始旋转 ▶" [ref=e32] [cursor=pointer]
+    - generic [ref=e33]:
+      - generic [ref=e34]: 本次候选（13 家）
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - generic [ref=e38]: E2E收藏_1774669682089
+          - generic [ref=e39]: ⭐ ×2
+        - generic [ref=e40]:
+          - generic [ref=e42]: E2E取消收藏_1774669682164
+          - generic [ref=e43]: ×1
+        - generic [ref=e44]:
+          - generic [ref=e46]: E2E收藏列表_1774669682201
+          - generic [ref=e47]: ⭐ ×2
+        - generic [ref=e48]:
+          - generic [ref=e50]: 决策测试餐厅0_1774669682833_0.5851753999956503
+          - generic [ref=e51]: ×1
+        - generic [ref=e52]:
+          - generic [ref=e54]: 决策测试餐厅1_1774669682852_0.41860119174045995
+          - generic [ref=e55]: ×1
+        - generic [ref=e56]:
+          - generic [ref=e58]: 决策测试餐厅2_1774669682856_0.6047715415285009
+          - generic [ref=e59]: ×1
+        - generic [ref=e60]:
+          - generic [ref=e62]: E2E解除拉黑_1774669682981
+          - generic [ref=e63]: ×1
+        - generic [ref=e64]:
+          - generic [ref=e66]: 决策测试餐厅0_1774669683219_0.52697568717966
+          - generic [ref=e67]: ×1
+        - generic [ref=e68]:
+          - generic [ref=e70]: 决策测试餐厅1_1774669683223_0.12326729471500708
+          - generic [ref=e71]: ×1
+        - generic [ref=e72]:
+          - generic [ref=e74]: 决策测试餐厅2_1774669683227_0.8817701902342965
+          - generic [ref=e75]: ×1
+        - generic [ref=e76]:
+          - generic [ref=e78]: 决策测试餐厅0_1774669683639_0.7746374729000146
+          - generic [ref=e79]: ×1
+        - generic [ref=e80]:
+          - generic [ref=e82]: 决策测试餐厅1_1774669683641_0.13973992793391887
+          - generic [ref=e83]: ×1
+        - generic [ref=e84]:
+          - generic [ref=e86]: 决策测试餐厅2_1774669683643_0.7539353540828434
+          - generic [ref=e87]: ×1
+      - generic [ref=e89]: 快速添加
+      - generic [ref=e90]:
+        - textbox "餐厅名称" [ref=e91]
+        - button "+ 添加" [ref=e92] [cursor=pointer]
+  - generic [ref=e93]:
+    - generic [ref=e94]:
+      - heading "添加餐厅" [level=3] [ref=e95]
+      - button "关闭" [ref=e96] [cursor=pointer]:
+        - img [ref=e97]
+    - generic [ref=e102]:
+      - generic [ref=e103]:
+        - generic [ref=e104]: 餐厅名称 *
+        - textbox "餐厅名称 *" [ref=e105]:
+          - /placeholder: 如：麦当劳、海底捞…
+        - paragraph [ref=e106]
+      - generic [ref=e107]:
+        - generic [ref=e108]: 品类（选填）
+        - textbox "品类（选填）" [ref=e109]:
+          - /placeholder: 如：快餐、火锅、日料…
+      - generic [ref=e110]:
+        - generic [ref=e111]: 口味标签（选填）
+        - generic [ref=e112]:
+          - button "重口" [ref=e113] [cursor=pointer]
+          - button "清淡" [ref=e114] [cursor=pointer]
+          - button "咸" [ref=e115] [cursor=pointer]
+          - button "甜" [ref=e116] [cursor=pointer]
+          - button "辣" [ref=e117] [cursor=pointer]
+          - button "快手" [ref=e118] [cursor=pointer]
+          - button "便宜" [ref=e119] [cursor=pointer]
+          - button "健康" [ref=e120] [cursor=pointer]
+          - button "素食" [ref=e121] [cursor=pointer]
+          - button "海鲜" [ref=e122] [cursor=pointer]
+        - paragraph [ref=e123]: 点击标签选择，最多10个
+      - generic [ref=e124]:
+        - generic [ref=e125]: 备注（选填）
+        - textbox "备注（选填）" [ref=e126]:
+          - /placeholder: 如：楼下的、周末休息…
+      - button "保存" [ref=e127] [cursor=pointer]
+  - generic [ref=e128]:
+    - generic [ref=e129]:
+      - heading "编辑餐厅" [level=3] [ref=e130]
+      - button "关闭" [ref=e131] [cursor=pointer]:
+        - img [ref=e132]
+    - generic [ref=e137]:
+      - generic [ref=e138]:
+        - generic [ref=e139]: 餐厅名称 *
+        - textbox "餐厅名称 *" [ref=e140]
+        - paragraph [ref=e141]
+      - generic [ref=e142]:
+        - generic [ref=e143]: 品类（选填）
+        - textbox "品类（选填）" [ref=e144]
+      - generic [ref=e146]: 口味标签（选填）
+      - generic [ref=e147]:
+        - generic [ref=e148]: 备注（选填）
+        - textbox "备注（选填）" [ref=e149]
+      - button "保存修改" [ref=e150] [cursor=pointer]
+```

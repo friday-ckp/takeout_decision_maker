@@ -423,6 +423,175 @@
 .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 
 /* ════════════════════════════════════════════════════════
+   Icon 按钮（编辑/删除/拉黑）
+════════════════════════════════════════════════════════ */
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; color: #aaa; flex-shrink: 0;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.icon-btn:hover { color: #555; background: #f5f5f5; }
+.icon-btn--danger:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+.icon-btn--active-danger { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+/* ════════════════════════════════════════════════════════
+   列表项（回收站/收藏/黑名单）
+════════════════════════════════════════════════════════ */
+.trash-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: #fff;
+  border: 1px solid #f0f0f0; border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+.trash-item:hover { border-color: #e0e0e0; }
+
+/* ════════════════════════════════════════════════════════
+   历史记录
+════════════════════════════════════════════════════════ */
+.history-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; background: #fff;
+  border: 1px solid #f0f0f0; border-radius: var(--radius-sm);
+  margin-bottom: 8px; gap: 12px;
+}
+.history-item:hover { border-color: #e0e0e0; }
+.history-item__left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.history-item__mode { font-size: 12px; color: #888; white-space: nowrap; flex-shrink: 0; }
+.history-item__name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-item__date { font-size: 12px; color: #aaa; white-space: nowrap; flex-shrink: 0; }
+.history-empty { text-align: center; padding: 60px 20px; }
+.history-pager { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px 0; }
+
+/* ════════════════════════════════════════════════════════
+   设置页
+════════════════════════════════════════════════════════ */
+.settings-group {
+  background: #fff; border-radius: 16px;
+  padding: 24px; border: 1px solid #f0f0f0;
+  margin-bottom: 16px;
+}
+.settings-group h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid #f5f5f5;
+}
+.settings-row:last-of-type { border-bottom: none; }
+.settings-row label { font-size: 14px; color: #444; flex: 1; }
+.settings-row small { font-size: 12px; color: #aaa; display: block; margin-top: 2px; }
+.settings-row input[type="number"] {
+  width: 72px; padding: 6px 10px; border: 1.5px solid #e8e8e8;
+  border-radius: 8px; font-size: 14px; text-align: center;
+  outline: none; transition: border-color var(--transition-fast);
+}
+.settings-row input[type="number"]:focus { border-color: #111; }
+
+/* ════════════════════════════════════════════════════════
+   导入页
+════════════════════════════════════════════════════════ */
+.import-result {
+  padding: 12px 16px; border-radius: 8px;
+  font-size: 13px; line-height: 1.6;
+  margin-top: 12px;
+}
+.import-result.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+
+/* ════════════════════════════════════════════════════════
+   扫雷格子
+════════════════════════════════════════════════════════ */
+.mine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.mine-cell {
+  aspect-ratio: 1;
+  cursor: pointer;
+  perspective: 500px;
+  user-select: none;
+}
+.mine-cell__inner {
+  width: 100%; height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.4s ease;
+}
+.mine-cell.revealed .mine-cell__inner {
+  transform: rotateY(180deg);
+}
+.mine-cell__back,
+.mine-cell__front {
+  position: absolute; inset: 0;
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  backface-visibility: hidden;
+}
+.mine-cell__back {
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  border: 2px solid #c7d2fe;
+  font-size: 28px;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.mine-cell:hover:not(.revealed) .mine-cell__back {
+  background: linear-gradient(135deg, #c7d2fe, #a5b4fc);
+  border-color: #a5b4fc;
+}
+.mine-cell__front {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  border: 2px solid #a7f3d0;
+  transform: rotateY(180deg);
+  padding: 8px;
+}
+.mine-cell.is-mine .mine-cell__front {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  border-color: #fca5a5;
+}
+.mine-cell.boom .mine-cell__back {
+  animation: boom-shake 0.3s ease;
+}
+@keyframes boom-shake {
+  0%,100% { transform: translateX(0); }
+  25%  { transform: translateX(-6px); }
+  75%  { transform: translateX(6px); }
+}
+.mine-cell__name { font-size: 13px; font-weight: 700; text-align: center; color: #065f46; line-height: 1.3; word-break: break-all; }
+.mine-cell__cat  { font-size: 10px; color: #047857; margin-top: 2px; }
+.mine-cell__fav  { font-size: 10px; margin-top: 2px; }
+
+/* 扫雷结果弹窗 */
+.mine-result-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  z-index: 200; display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.mine-result-overlay.hidden { display: none; }
+.mine-result-modal {
+  background: #fff; border-radius: 24px; padding: 40px 36px;
+  max-width: 400px; width: 92%; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.mine-result-modal .emoji-big { font-size: 64px; margin-bottom: 10px; line-height: 1; }
+.mine-result-modal .found-label { font-size: 14px; color: #888; margin-bottom: 8px; }
+.mine-result-modal .res-name { font-size: 34px; font-weight: 900; color: #111; margin-bottom: 6px; line-height: 1.2; word-break: break-all; }
+.mine-result-modal .res-cat { font-size: 14px; color: #888; margin-bottom: 24px; min-height: 20px; }
+.mine-result-modal .action-col { display: flex; flex-direction: column; gap: 10px; }
+.mine-result-modal .replay-hint { font-size: 13px; color: #aaa; margin-top: 10px; min-height: 18px; }
+
+/* ════════════════════════════════════════════════════════
+   口味过滤条（模式选择页）
+════════════════════════════════════════════════════════ */
+.flavor-filter-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 20px; background: #f8f8f8;
+  border-radius: 12px; margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.flavor-filter-label { font-size: 13px; color: #888; font-weight: 600; white-space: nowrap; }
+
+/* ════════════════════════════════════════════════════════
    占位页
 ════════════════════════════════════════════════════════ */
 .placeholder-page {
@@ -559,10 +728,16 @@
         <h2>我的餐厅</h2>
         <p style="font-size:13px;color:#888;margin-top:4px" id="restaurant-count"></p>
       </div>
-      <button class="btn btn-primary" id="btn-add-restaurant">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        添加餐厅
-      </button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" id="btn-goto-import" title="批量导入">📥 批量导入</button>
+        <button class="btn btn-secondary btn-sm" id="btn-goto-favorites" title="收藏列表">❤ 收藏</button>
+        <button class="btn btn-secondary btn-sm" id="btn-goto-blacklist" title="黑名单">🚫 黑名单</button>
+        <button class="btn btn-secondary btn-sm" id="btn-goto-trash" title="回收站">🗑 回收站</button>
+        <button class="btn btn-primary" id="btn-add-restaurant">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          添加餐厅
+        </button>
+      </div>
     </div>
 
     <!-- 骨架屏 -->
@@ -589,7 +764,22 @@
   <div class="content-wrap" style="max-width:900px">
     <div class="page-back" id="btn-back-home">← 返回首页</div>
     <div class="page-title">选择决策方式</div>
-    <div class="page-sub" id="decide-mood-sub">心情：😊 开心 · 显示全部候选餐厅</div>
+    <div class="page-sub" id="decide-mood-sub">心情：😊 开心</div>
+
+    <!-- 口味偏好过滤（Story 5.6）-->
+    <div class="flavor-filter-row">
+      <span class="flavor-filter-label">口味偏好：</span>
+      <div id="decide-flavor-chips" style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="chip" data-flavor="重口">重口</button>
+        <button type="button" class="chip" data-flavor="清淡">清淡</button>
+        <button type="button" class="chip" data-flavor="辣">辣</button>
+        <button type="button" class="chip" data-flavor="甜">甜</button>
+        <button type="button" class="chip" data-flavor="快手">快手</button>
+        <button type="button" class="chip" data-flavor="健康">健康</button>
+        <button type="button" class="chip" data-flavor="素食">素食</button>
+        <button type="button" class="chip" data-flavor="海鲜">海鲜</button>
+      </div>
+    </div>
 
     <div class="mode-grid">
       <div class="mode-card wheel" id="btn-choose-wheel" role="button" tabindex="0">
@@ -598,11 +788,11 @@
         <div class="mc-desc">随机旋转，命运决定一切<br>适合喜欢仪式感的选择</div>
         <div class="mc-arrow">→</div>
       </div>
-      <div class="mode-card mine disabled" role="button" tabindex="-1" aria-disabled="true">
-        <div class="mc-badge">即将上线</div>
+      <div class="mode-card mine" id="btn-choose-mine" role="button" tabindex="0">
         <div class="mc-icon">💣</div>
         <div class="mc-name">扫雷模式</div>
         <div class="mc-desc">翻开一个格子见分晓<br>适合喜欢刺激感的选择</div>
+        <div class="mc-arrow">→</div>
       </div>
     </div>
 
@@ -610,7 +800,7 @@
       <div class="ic-icon">🔗</div>
       <div class="ic-text">
         <strong>邀请朋友一起选</strong>
-        <span>生成分享链接，大家实时协作决策，由发起人最终拍板 — Sprint 3</span>
+        <span>生成分享链接，大家实时协作决策 — Sprint 3</span>
       </div>
       <span style="font-size:20px;color:#c7d2fe;margin-left:auto">→</span>
     </div>
@@ -708,24 +898,120 @@
   </div>
 </div>
 
-<!-- ══ 历史页（占位）═══════════════════════════════════════════════ -->
+<!-- ══ 历史页（Story 5.1）════════════════════════════════════════ -->
 <div class="app-page hidden" id="page-history">
-  <div class="content-wrap">
-    <div class="placeholder-page">
-      <div class="placeholder-page__icon">🕐</div>
-      <p class="placeholder-page__title">决策历史</p>
-      <p class="placeholder-page__sub">Sprint 2 实现</p>
+  <div class="content-wrap" style="max-width:700px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--spacing-lg)">
+      <h2 style="font-size:var(--font-size-xxl);font-weight:800">决策历史</h2>
     </div>
+    <div id="history-list-container"></div>
+    <div id="history-pager"></div>
   </div>
 </div>
 
-<!-- ══ 设置页（占位）═══════════════════════════════════════════════ -->
+<!-- ══ 设置页（Story 4.2）════════════════════════════════════════ -->
 <div class="app-page hidden" id="page-settings">
-  <div class="content-wrap">
-    <div class="placeholder-page">
-      <div class="placeholder-page__icon">⚙️</div>
-      <p class="placeholder-page__title">个性化设置</p>
-      <p class="placeholder-page__sub">Sprint 2 实现</p>
+  <div class="content-wrap" style="max-width:600px">
+    <h2 style="font-size:var(--font-size-xxl);font-weight:800;margin-bottom:var(--spacing-lg)">个性化设置</h2>
+
+    <div class="settings-group">
+      <h3>决策规则</h3>
+      <div class="settings-row">
+        <div>
+          <label for="setting-replay-limit">每日重玩次数上限</label>
+          <small>每天最多换几次结果</small>
+        </div>
+        <input type="number" id="setting-replay-limit" min="1" max="10" value="3" />
+      </div>
+      <div class="settings-row">
+        <div>
+          <label for="setting-exclude-days">历史排除天数</label>
+          <small>N 天内吃过的不出现在候选（0 = 不排除）</small>
+        </div>
+        <input type="number" id="setting-exclude-days" min="0" max="30" value="3" />
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-lg" id="btn-save-settings" style="min-width:140px">
+      保存设置
+    </button>
+  </div>
+</div>
+
+<!-- ══ 回收站（Story 1.14）══════════════════════════════════════ -->
+<div class="app-page hidden" id="page-trash">
+  <div class="content-wrap" style="max-width:700px">
+    <div class="page-back" id="btn-back-restaurants-trash">← 我的餐厅</div>
+    <h2 style="font-size:var(--font-size-xxl);font-weight:800;margin-bottom:8px">🗑 回收站</h2>
+    <p style="font-size:13px;color:#aaa;margin-bottom:var(--spacing-lg)">已删除餐厅可在此还原，7天后自动清理</p>
+    <div id="trash-list"></div>
+  </div>
+</div>
+
+<!-- ══ 收藏列表（Story 1.16）════════════════════════════════════ -->
+<div class="app-page hidden" id="page-favorites">
+  <div class="content-wrap" style="max-width:700px">
+    <div class="page-back" id="btn-back-restaurants-fav">← 我的餐厅</div>
+    <h2 style="font-size:var(--font-size-xxl);font-weight:800;margin-bottom:8px">❤ 我的收藏</h2>
+    <p style="font-size:13px;color:#aaa;margin-bottom:var(--spacing-lg)">收藏的餐厅在决策时权重 ×2</p>
+    <div id="favorites-list"></div>
+  </div>
+</div>
+
+<!-- ══ 黑名单（Story 1.18）══════════════════════════════════════ -->
+<div class="app-page hidden" id="page-blacklist">
+  <div class="content-wrap" style="max-width:700px">
+    <div class="page-back" id="btn-back-restaurants-black">← 我的餐厅</div>
+    <h2 style="font-size:var(--font-size-xxl);font-weight:800;margin-bottom:8px">🚫 黑名单</h2>
+    <p style="font-size:13px;color:#aaa;margin-bottom:var(--spacing-lg)">黑名单中的餐厅不会出现在候选列表</p>
+    <div id="blacklist-list"></div>
+  </div>
+</div>
+
+<!-- ══ 批量导入（Story 1.11）════════════════════════════════════ -->
+<div class="app-page hidden" id="page-import">
+  <div class="content-wrap" style="max-width:700px">
+    <div class="page-back" id="btn-back-restaurants-import">← 我的餐厅</div>
+    <h2 style="font-size:var(--font-size-xxl);font-weight:800;margin-bottom:8px">📥 批量导入</h2>
+    <p style="font-size:13px;color:#aaa;margin-bottom:var(--spacing-lg)">将 JSON 数组粘贴到下方输入框，支持字段：name（必填）、category、tags（数组）、notes</p>
+
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-secondary btn-sm" id="btn-import-sample">填入示例数据</button>
+    </div>
+    <textarea id="import-json-textarea" class="form-input" rows="12"
+              placeholder='[{"name":"麦当劳","category":"快餐","tags":["快手","便宜"]},{"name":"海底捞","category":"火锅","tags":["辣"]}]'
+              style="font-family:monospace;font-size:13px;min-height:220px;margin-bottom:12px"></textarea>
+    <div id="import-result"></div>
+    <button class="btn btn-primary btn-lg" id="btn-import-submit" style="margin-top:12px;min-width:120px">
+      开始导入
+    </button>
+  </div>
+</div>
+
+<!-- ══ 扫雷页（Story 3.2）══════════════════════════════════════ -->
+<div class="app-page hidden" id="page-mine">
+  <div class="content-wrap" style="max-width:900px">
+    <div class="page-back" id="btn-back-decide-from-mine">← 模式选择</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+      <div style="font-size:28px;font-weight:900;color:#111">💣 扫雷决策</div>
+      <button class="btn btn-secondary btn-sm" id="btn-mine-reshuffle">🔀 重新洗牌</button>
+    </div>
+    <p style="font-size:14px;color:#888;margin-bottom:20px">翻开任意一个格子，命运将为你决定！踩到💣继续翻，直到翻到餐厅。</p>
+    <div class="mine-grid" id="mine-grid"></div>
+  </div>
+
+  <!-- 扫雷结果弹窗 -->
+  <div class="mine-result-overlay hidden" id="mine-result-overlay">
+    <div class="mine-result-modal">
+      <div class="emoji-big">🎉</div>
+      <div class="found-label">命运已决定！</div>
+      <div class="res-name" id="mine-result-name">—</div>
+      <div class="res-cat" id="mine-result-category"></div>
+      <div class="action-col">
+        <button class="btn btn-primary btn-lg btn-full" id="btn-mine-confirm">就这家了！</button>
+        <button class="btn btn-secondary btn-lg btn-full" id="btn-mine-replay">换一个</button>
+      </div>
+      <p class="replay-hint" id="mine-result-hint"></p>
     </div>
   </div>
 </div>
@@ -768,6 +1054,43 @@
   </div>
 </div>
 
+<!-- ══ 编辑餐厅侧边面板（Story 1.12）════════════════════════════ -->
+<div class="side-panel-overlay" id="edit-panel-overlay"></div>
+<div class="side-panel" id="edit-panel">
+  <div class="side-panel__header">
+    <h3>编辑餐厅</h3>
+    <button class="close-btn" id="btn-close-edit" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+  <div class="side-panel__body">
+    <form id="edit-restaurant-form" novalidate>
+      <div style="display:flex;flex-direction:column;gap:var(--spacing-lg)">
+        <div class="form-group">
+          <label class="form-label" for="edit-name">餐厅名称 <span style="color:#ef4444">*</span></label>
+          <input class="form-input" id="edit-name" type="text" maxlength="100" autocomplete="off" />
+          <p class="form-error" id="edit-name-error"></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-category">品类（选填）</label>
+          <input class="form-input" id="edit-category" type="text" maxlength="50" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">口味标签（选填）</label>
+          <div class="tags-container" id="edit-tags-container"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-notes">备注（选填）</label>
+          <textarea class="form-input" id="edit-notes" rows="3" maxlength="500" style="min-height:80px"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full btn-lg" id="edit-submit-btn">保存修改</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ══ Toast ══════════════════════════════════════════════════════ -->
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
@@ -775,5 +1098,8 @@
 <script src="../scripts/app.js"></script>
 <script src="../scripts/restaurants.js"></script>
 <script src="../scripts/wheel.js"></script>
+<script src="../scripts/minesweeper.js"></script>
+<script src="../scripts/history-page.js"></script>
+<script src="../scripts/settings.js"></script>
 </body>
 </html>

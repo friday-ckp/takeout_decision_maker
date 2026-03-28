@@ -126,10 +126,13 @@ function spinWheel(canvas, segments, onDone) {
     } else {
       isSpinning = false;
 
-      const n = segments.length;
-      const slice = (2 * Math.PI) / n;
-      const norm  = ((-(currentAngle % (2 * Math.PI))) + 2 * Math.PI + Math.PI / 2) % (2 * Math.PI);
-      const idx   = Math.floor(norm / slice) % n;
+      const n      = segments.length;
+      const slice  = (2 * Math.PI) / n;
+      // 指针在 12 点钟（-π/2）。转了 R 弧度后，位于指针处的扇区 i 满足：
+      // i = floor((2π - R_norm) / slice) % n
+      const R_norm = ((currentAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const theta  = (2 * Math.PI - R_norm) % (2 * Math.PI);
+      const idx    = Math.floor(theta / slice) % n;
 
       highlightSector(canvas, segments, idx, currentAngle);
       setTimeout(() => onDone(segments[idx]), 600);
@@ -277,10 +280,25 @@ async function replayWheel() {
   setTimeout(triggerSpin, 300);
 }
 
+// ── 结果页重玩提示更新（供 minesweeper.js 调用）──────────────────
+async function updateResultReplayHint() {
+  await loadDailyConfig();
+  const remaining = (dailyConfig?.maxReplayCount ?? 3) - (dailyConfig?.replayCount ?? 0);
+  const replayBtn = document.getElementById('btn-result-replay');
+  const hint      = document.getElementById('result-replay-hint');
+  if (replayBtn) replayBtn.disabled = remaining <= 0;
+  if (hint) hint.textContent = remaining <= 0 ? '今天的纠结次数已用完！' : `还可以换 ${remaining} 次`;
+}
+
 // ── 进入决策页 ────────────────────────────────────────────────────
 async function enterDecideWheel() {
   try {
-    const data = await api.get('/api/candidates?limit=16');
+    const params = new URLSearchParams({ limit: '16' });
+    if (typeof currentMood !== 'undefined' && currentMood) params.set('mood', currentMood);
+    if (typeof currentFlavors !== 'undefined' && currentFlavors.length)
+      params.set('flavors', currentFlavors.join(','));
+
+    const data = await api.get(`/api/candidates?${params}`);
     rawCandidates = data.candidates || [];
 
     if (rawCandidates.length === 0) {
@@ -368,6 +386,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const wheelCard = document.getElementById('btn-choose-wheel');
   wheelCard?.addEventListener('click', enterDecideWheel);
   wheelCard?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') enterDecideWheel(); });
+
+  // 模式选择 → 扫雷
+  const mineCard = document.getElementById('btn-choose-mine');
+  mineCard?.addEventListener('click', () => navigate('mine'));
+  mineCard?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') navigate('mine'); });
 
   // 勾选页确认
   document.getElementById('btn-wheel-select-confirm')?.addEventListener('click', () => {

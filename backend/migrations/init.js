@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS decision_history (
   user_id         INT UNSIGNED NOT NULL,
   restaurant_id   INT UNSIGNED NULL COMMENT '餐厅删除后可为空',
   restaurant_name VARCHAR(100) NOT NULL COMMENT '记录快照名称',
-  mode            ENUM('roulette', 'minesweeper') NOT NULL,
+  mode            ENUM('wheel', 'minesweeper', 'roulette') NOT NULL,
   decided_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

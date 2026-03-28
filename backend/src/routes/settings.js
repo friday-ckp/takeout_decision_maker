@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { requireUserId } = require('../middleware/auth');
-const { createHistory, listHistory } = require('../controllers/historyController');
+const { getSettings, patchSettings } = require('../controllers/settingsController');
 
 router.use(requireUserId);
-router.get('/',  listHistory);
-router.post('/', createHistory);
+router.get('/',   getSettings);
+router.patch('/', patchSettings);
 
 module.exports = router;

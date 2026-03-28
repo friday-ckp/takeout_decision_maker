@@ -8,6 +8,16 @@ const { success, fail } = require('../utils/response');
 const VALID_MOODS = ['😊', '😐', '😴', '😤', null];
 const DEFAULT_MAX_REPLAY = 3;
 
+async function getMaxReplay(userId, pool) {
+  try {
+    const [rows] = await pool.query(
+      "SELECT value FROM settings WHERE user_id = ? AND `key` = 'daily_replay_limit'",
+      [userId]
+    );
+    return rows.length > 0 ? parseInt(rows[0].value, 10) : DEFAULT_MAX_REPLAY;
+  } catch { return DEFAULT_MAX_REPLAY; }
+}
+
 /** 获取或创建当日配置 */
 async function getDailyConfig(req, res, next) {
   try {
@@ -31,8 +41,8 @@ async function getDailyConfig(req, res, next) {
       [userId, today]
     );
 
-    // 附带 maxReplayCount（来自 settings，暂时写死默认值）
-    const config = { ...rows[0], maxReplayCount: DEFAULT_MAX_REPLAY };
+    const maxReplay = await getMaxReplay(userId, pool);
+    const config = { ...rows[0], maxReplayCount: maxReplay };
     return success(res, config);
   } catch (err) {
     next(err);
@@ -57,8 +67,9 @@ async function patchDailyConfig(req, res, next) {
 
     const record = rows[0];
 
+    const maxReplay = await getMaxReplay(userId, pool);
     if (incrementReplay) {
-      if (record.replay_count >= DEFAULT_MAX_REPLAY) {
+      if (record.replay_count >= maxReplay) {
         return fail(res, 40001, '今日重玩次数已达上限');
       }
       await pool.query(
@@ -84,7 +95,7 @@ async function patchDailyConfig(req, res, next) {
       [record.id]
     );
 
-    return success(res, { ...updated[0], maxReplayCount: DEFAULT_MAX_REPLAY });
+    return success(res, { ...updated[0], maxReplayCount: maxReplay });
   } catch (err) {
     next(err);
   }

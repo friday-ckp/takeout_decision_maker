@@ -18,7 +18,7 @@ sprints:
     points: 35
     stories: 18
   - id: sprint-2
-    status: not-started
+    status: done
     points: 38
     stories: 21
   - id: sprint-3
@@ -131,7 +131,7 @@ totalStories: 58
 ## Sprint 2：餐厅管理 + 历史 + 过滤 + 设置
 
 **周期：** 2026-04-13 ~ 2026-04-24（2周）
-**状态：** not-started
+**状态：** done
 
 ### Sprint 目标
 
@@ -147,15 +147,15 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 1.10 | JSON 批量导入 API | FR-05 | 2 | not-started |
-| 1.11 | JSON 批量导入前端 UI | FR-05 | 1 | not-started |
-| 1.12 | 编辑餐厅 API + 前端 | FR-06 | 2 | not-started |
-| 1.13 | 软删除餐厅 + 回收站 API | FR-07, ARCH-05 | 2 | not-started |
-| 1.14 | 回收站页面（前端） | FR-07 | 1 | not-started |
-| 1.15 | 收藏 / 取消收藏 | FR-08 | 2 | not-started |
-| 1.16 | 收藏列表页（前端） | FR-08 | 1 | not-started |
-| 1.17 | 拉黑 / 解除拉黑 | FR-09 | 2 | not-started |
-| 1.18 | 黑名单页面（前端） | FR-09 | 1 | not-started |
+| 1.10 | JSON 批量导入 API | FR-05 | 2 | done |
+| 1.11 | JSON 批量导入前端 UI | FR-05 | 1 | done |
+| 1.12 | 编辑餐厅 API + 前端 | FR-06 | 2 | done |
+| 1.13 | 软删除餐厅 + 回收站 API | FR-07, ARCH-05 | 2 | done |
+| 1.14 | 回收站页面（前端） | FR-07 | 1 | done |
+| 1.15 | 收藏 / 取消收藏 | FR-08 | 2 | done |
+| 1.16 | 收藏列表页（前端） | FR-08 | 1 | done |
+| 1.17 | 拉黑 / 解除拉黑 | FR-09 | 2 | done |
+| 1.18 | 黑名单页面（前端） | FR-09 | 1 | done |
 
 **Epic 1（Sprint 2 部分）小计：14 pts**
 
@@ -165,10 +165,10 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 3.1 | 扫雷格子数据构建（权重算法） | FR-04, FR-08 | 2 | not-started |
-| 3.2 | 扫雷格子布局与翻牌动画（前端） | FR-04, UX-DR4 | 3 | not-started |
-| 3.3 | 结果页 — 扫雷模式适配 | FR-04, FR-15 | 2 | not-started |
-| 3.4 | 模式选择页激活扫雷入口 | FR-02 | 1 | not-started |
+| 3.1 | 扫雷格子数据构建（权重算法） | FR-04, FR-08 | 2 | done |
+| 3.2 | 扫雷格子布局与翻牌动画（前端） | FR-04, UX-DR4 | 3 | done |
+| 3.3 | 结果页 — 扫雷模式适配 | FR-04, FR-15 | 2 | done |
+| 3.4 | 模式选择页激活扫雷入口 | FR-02 | 1 | done |
 
 **Epic 3 小计：8 pts**（注：扫雷权重单元测试包含在 3.1 验收标准中）
 
@@ -178,8 +178,8 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 4.1 | 设置 API | FR-14 | 2 | not-started |
-| 4.2 | 设置页（前端） | FR-14 | 2 | not-started |
+| 4.1 | 设置 API | FR-14 | 2 | done |
+| 4.2 | 设置页（前端） | FR-14 | 2 | done |
 
 **Epic 4 小计：4 pts**
 
@@ -189,12 +189,12 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 5.1 | 历史记录列表 API + 页面 | FR-10 | 2 | not-started |
-| 5.2 | 历史排除逻辑集成 | FR-11, ARCH-05 | 3 | not-started |
-| 5.3 | 心情过滤后端逻辑 | FR-12 | 2 | not-started |
-| 5.4 | 心情选择器前端 | FR-12, UX-DR6 | 2 | not-started |
-| 5.5 | 口味偏好过滤后端逻辑 | FR-13 | 2 | not-started |
-| 5.6 | 口味偏好前端（模式选择页） | FR-13 | 1 | not-started |
+| 5.1 | 历史记录列表 API + 页面 | FR-10 | 2 | done |
+| 5.2 | 历史排除逻辑集成 | FR-11, ARCH-05 | 3 | done |
+| 5.3 | 心情过滤后端逻辑 | FR-12 | 2 | done |
+| 5.4 | 心情选择器前端 | FR-12, UX-DR6 | 2 | done |
+| 5.5 | 口味偏好过滤后端逻辑 | FR-13 | 2 | done |
+| 5.6 | 口味偏好前端（模式选择页） | FR-13 | 1 | done |
 
 **Epic 5 小计：12 pts**
 
