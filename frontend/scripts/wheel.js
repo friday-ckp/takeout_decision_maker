@@ -108,7 +108,22 @@ function spinWheel(canvas, segments, onDone) {
   if (isSpinning || segments.length === 0) return;
   isSpinning = true;
 
-  const totalRot  = 2 * Math.PI * (5 + Math.random() * 5);
+  const n     = segments.length;
+  const slice = (2 * Math.PI) / n;
+
+  // 1. 先确定中奖扇区，再反推目标角度（而非从最终角度猜扇区）
+  const winIdx = Math.floor(Math.random() * n);
+
+  // 2. 让 winIdx 扇区的中心恰好落在指针（-π/2，12 点钟）处：
+  //    R + winIdx*slice - π/2 + slice/2 = -π/2  =>  R = -(winIdx + 0.5)*slice
+  const baseAngle  = -(winIdx + 0.5) * slice;
+
+  // 3. 在 baseAngle 基础上加足够多的整圈，保证旋转圈数 >= 5
+  const minSpins  = 5 + Math.random() * 5;
+  const minTarget = currentAngle + minSpins * 2 * Math.PI;
+  const k         = Math.ceil((minTarget - baseAngle) / (2 * Math.PI));
+  const targetAngle = baseAngle + k * 2 * Math.PI;
+
   const duration  = (2 + Math.random() * 2) * 1000;
   const startAng  = currentAngle;
   const startTime = performance.now();
@@ -118,24 +133,17 @@ function spinWheel(canvas, segments, onDone) {
   function frame(now) {
     const elapsed  = now - startTime;
     const progress = Math.min(elapsed / duration, 1);
-    currentAngle   = startAng + easeOut(progress) * totalRot;
+    currentAngle   = startAng + easeOut(progress) * (targetAngle - startAng);
     drawWheel(canvas, segments, currentAngle);
 
     if (progress < 1) {
       requestAnimationFrame(frame);
     } else {
-      isSpinning = false;
-
-      const n      = segments.length;
-      const slice  = (2 * Math.PI) / n;
-      // 指针在 12 点钟（-π/2）。转了 R 弧度后，位于指针处的扇区 i 满足：
-      // i = floor((2π - R_norm) / slice) % n
-      const R_norm = ((currentAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-      const theta  = (2 * Math.PI - R_norm) % (2 * Math.PI);
-      const idx    = Math.floor(theta / slice) % n;
-
-      highlightSector(canvas, segments, idx, currentAngle);
-      setTimeout(() => onDone(segments[idx]), 600);
+      currentAngle = targetAngle;   // 确保精确落点
+      isSpinning   = false;
+      drawWheel(canvas, segments, currentAngle);
+      highlightSector(canvas, segments, winIdx, currentAngle);
+      setTimeout(() => onDone(segments[winIdx]), 600);
     }
   }
   requestAnimationFrame(frame);
