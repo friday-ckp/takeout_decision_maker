@@ -11,13 +11,16 @@ async function listRestaurants(req, res, next) {
       SELECT
         r.id, r.name, r.category, r.tags, r.notes,
         r.created_at AS createdAt, r.updated_at AS updatedAt,
-        CASE WHEN urr.relation_type = 'favorite' THEN 1 ELSE 0 END AS isFavorite
+        CASE WHEN urr_fav.relation_type = 'favorite' THEN 1 ELSE 0 END AS isFavorite,
+        CASE WHEN urr_blk.relation_type = 'blocked'  THEN 1 ELSE 0 END AS isBlocked
       FROM restaurants r
-      LEFT JOIN user_restaurant_relations urr
-        ON urr.restaurant_id = r.id AND urr.user_id = ? AND urr.relation_type = 'favorite'
+      LEFT JOIN user_restaurant_relations urr_fav
+        ON urr_fav.restaurant_id = r.id AND urr_fav.user_id = ? AND urr_fav.relation_type = 'favorite'
+      LEFT JOIN user_restaurant_relations urr_blk
+        ON urr_blk.restaurant_id = r.id AND urr_blk.user_id = ? AND urr_blk.relation_type = 'blocked'
       WHERE r.user_id = ? AND r.is_deleted = 0
     `;
-    const params = [userId, userId];
+    const params = [userId, userId, userId];
 
     // keyword 过滤
     if (keyword && keyword.trim()) {
@@ -34,6 +37,7 @@ async function listRestaurants(req, res, next) {
       ...r,
       tags: safeParseJSON(r.tags, []),
       isFavorite: !!r.isFavorite,
+      isBlocked: !!r.isBlocked,
     }));
 
     if (tags && tags.trim()) {

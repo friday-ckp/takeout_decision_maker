@@ -14,7 +14,7 @@ inputDocuments:
   - _bmad-output/planning-artifacts/epics-takeout_decision_maker.md
 sprints:
   - id: sprint-1
-    status: not-started
+    status: done
     points: 35
     stories: 18
   - id: sprint-2
@@ -22,7 +22,7 @@ sprints:
     points: 38
     stories: 21
   - id: sprint-3
-    status: not-started
+    status: done
     points: 34
     stories: 19
 totalPoints: 107
@@ -214,7 +214,7 @@ totalStories: 58
 ## Sprint 3：多人实时协作 + 打磨上线
 
 **周期：** 2026-04-27 ~ 2026-05-08（2周）
-**状态：** not-started
+**状态：** done
 
 ### Sprint 目标
 
@@ -230,18 +230,18 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 6.1 | WebSocket 服务器骨架 | ARCH-04 | 2 | not-started |
-| 6.2 | 创建会话 API + 候选快照 | FR-16, ARCH-06 | 2 | not-started |
-| 6.3 | 分享链接生成与复制（前端） | FR-16 | 1 | not-started |
-| 6.4 | 加入会话 API + 临时用户创建 | FR-17 | 2 | not-started |
-| 6.5 | 受邀者昵称输入页（前端） | FR-17 | 1 | not-started |
-| 6.6 | 等待室实时参与者列表 | FR-18, UX-DR7 | 2 | not-started |
-| 6.7 | WS 等待室事件（participant_joined / session_state） | FR-18 | 2 | not-started |
-| 6.8 | 开始决策广播（deciding_started） | FR-19 | 2 | not-started |
-| 6.9 | 多人转盘 — 同步控制 | FR-19 | 3 | not-started |
-| 6.10 | 多人扫雷 — 先到先得 | FR-19 | 3 | not-started |
-| 6.11 | 多人结果页与会话确认 | FR-19, FR-15 | 2 | not-started |
-| 6.12 | WebSocket 断线重连 | NFR-05 | 2 | not-started |
+| 6.1 | WebSocket 服务器骨架 | ARCH-04 | 2 | done |
+| 6.2 | 创建会话 API + 候选快照 | FR-16, ARCH-06 | 2 | done |
+| 6.3 | 分享链接生成与复制（前端） | FR-16 | 1 | done |
+| 6.4 | 加入会话 API + 临时用户创建 | FR-17 | 2 | done |
+| 6.5 | 受邀者昵称输入页（前端） | FR-17 | 1 | done |
+| 6.6 | 等待室实时参与者列表 | FR-18, UX-DR7 | 2 | done |
+| 6.7 | WS 等待室事件（participant_joined / session_state） | FR-18 | 2 | done |
+| 6.8 | 开始决策广播（deciding_started） | FR-19 | 2 | done |
+| 6.9 | 多人转盘 — 同步控制 | FR-19 | 3 | done |
+| 6.10 | 多人扫雷 — 先到先得 | FR-19 | 3 | done |
+| 6.11 | 多人结果页与会话确认 | FR-19, FR-15 | 2 | done |
+| 6.12 | WebSocket 断线重连 | NFR-05 | 2 | done |
 
 **Epic 6 小计：24 pts**
 
@@ -251,13 +251,13 @@ totalStories: 58
 
 | Story | 标题 | 涵盖需求 | 估点 | 状态 |
 |-------|------|----------|------|------|
-| 7.1 | 首屏性能优化 | NFR-01, NFR-02 | 2 | not-started |
-| 7.2 | 移动端响应式适配 | NFR-09 | 1 | not-started |
-| 7.3 | 全局错误边界处理 | NFR-08 | 1 | not-started |
-| 7.4 | 跨浏览器兼容验证 | NFR-08 | 1 | not-started |
-| 7.5 | WebSocket 并发压测 | NFR-03, NFR-04 | 1 | not-started |
-| 7.6 | 上线 Checklist 与部署文档 | NFR-07 | 2 | not-started |
-| 7.7 | 首次使用数据库配置向导 | NFR-06 | 2 | not-started |
+| 7.1 | 首屏性能优化 | NFR-01, NFR-02 | 2 | done |
+| 7.2 | 移动端响应式适配 | NFR-09 | 1 | done |
+| 7.3 | 全局错误边界处理 | NFR-08 | 1 | done |
+| 7.4 | 跨浏览器兼容验证 | NFR-08 | 1 | done |
+| 7.5 | WebSocket 并发压测 | NFR-03, NFR-04 | 1 | done |
+| 7.6 | 上线 Checklist 与部署文档 | NFR-07 | 2 | done |
+| 7.7 | 首次使用数据库配置向导 | NFR-06 | 2 | done |
 
 **Epic 7 小计：10 pts**
 

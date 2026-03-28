@@ -11,5 +11,6 @@ router.use('/candidates',   require('./candidates'));
 router.use('/daily-config', require('./dailyConfig'));
 router.use('/history',      require('./history'));
 router.use('/settings',     require('./settings'));
+router.use('/sessions',     require('./sessions'));
 
 module.exports = router;

@@ -121,6 +121,17 @@ function initFlavorChips() {
   });
 }
 
+// ── 全局错误边界（Story 7.3）──────────────────────────────────────
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[UnhandledRejection]', e.reason);
+  showToast('出了一点小问题，请刷新重试', 'error');
+});
+
+window.addEventListener('error', (e) => {
+  console.error('[UncaughtError]', e.message, e.filename, e.lineno);
+  showToast('出了一点小问题，请刷新重试', 'error');
+});
+
 // ── DOM Ready ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initMoodGrid();
@@ -160,4 +171,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 初始页
   navigate('home');
+
+  // Story 7.7: 检查数据库连接状态
+  checkDbStatus();
+
+  // 数据库向导：刷新检查
+  document.getElementById('btn-db-wizard-done')?.addEventListener('click', () => {
+    location.reload();
+  });
 });
+
+// ── Story 7.7: 数据库配置向导 ─────────────────────────────────────
+async function checkDbStatus() {
+  try {
+    const data = await api.get('/api/db-status');
+    if (!data.connected) {
+      document.getElementById('db-wizard-overlay')?.classList.remove('hidden');
+    }
+  } catch (_) {
+    // 网络不通，不显示向导
+  }
+}

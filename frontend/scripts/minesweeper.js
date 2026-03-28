@@ -76,12 +76,12 @@ async function showMineResult(cell) {
   const hint      = document.getElementById('mine-result-hint');
 
   if (replayBtn) replayBtn.disabled = remaining <= 0;
-  if (hint) hint.textContent = remaining <= 0 ? '今天的纠结次数已用完！' : `还可以换 ${remaining} 次`;
+  if (hint) hint.textContent = remaining <= 0 ? '今日次数已用完！' : `今日剩余 ${remaining} 次`;
 
   document.getElementById('mine-result-overlay').classList.remove('hidden');
 }
 
-// 确认结果：记录历史，回首页
+// 确认结果：消耗 1 次今日次数 + 记录历史，回首页
 async function confirmMineResult() {
   const btn = document.getElementById('btn-mine-confirm');
   if (!btn || !mineFoundCell) return;
@@ -90,6 +90,7 @@ async function confirmMineResult() {
   btn.textContent = '记录中…';
 
   try {
+    await api.patch('/api/daily-config', { incrementReplay: true });
     await api.post('/api/history', { restaurantId: mineFoundCell.id, mode: 'minesweeper' });
     showToast('已记录，今天就吃这家！', 'success');
     document.getElementById('mine-result-overlay').classList.add('hidden');
@@ -102,7 +103,7 @@ async function confirmMineResult() {
   }
 }
 
-// 换一个：消耗次数 + 重新洗牌
+// 换一个：消耗 1 次今日次数 + 重新洗牌
 async function replayMine() {
   try {
     await api.patch('/api/daily-config', { incrementReplay: true });

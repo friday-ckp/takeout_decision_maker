@@ -151,6 +151,9 @@ textarea { resize: vertical; }
   border: none;
   line-height: 1;
   white-space: nowrap;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
   font-family: inherit;
 }
@@ -216,6 +219,9 @@ textarea { resize: vertical; }
   border: 1.5px solid var(--color-border);
   cursor: pointer;
   transition: all var(--transition-fast);
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
 }
 
@@ -295,7 +301,59 @@ textarea { resize: vertical; }
 .text-sm  { font-size: var(--font-size-sm); }
 
 /* ════════════════════════════════════════
-   RESPONSIVE (375px min-width fallback)
+   MODAL (多人模式选择弹窗)
+════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500;
+  padding: 20px;
+}
+.modal-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px;
+  width: 100%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+  font-size: 18px; font-weight: 800; color: #111;
+}
+
+/* ════════════════════════════════════════
+   多人等待室参与者条目
+════════════════════════════════════════ */
+.participant-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: #fff; border-radius: 10px;
+  border: 1.5px solid #e0e7ff;
+  animation: participantIn 300ms cubic-bezier(0.34,1.56,0.64,1);
+}
+.participant-item .p-avatar {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg,#a78bfa,#6366f1);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #fff; font-weight: 700;
+  flex-shrink: 0;
+}
+.participant-item .p-name { font-weight: 600; font-size: 14px; }
+.participant-item .p-badge {
+  font-size: 11px; color: #6366f1; background: #e0e7ff;
+  padding: 2px 8px; border-radius: 999px; margin-left: auto;
+}
+
+@keyframes participantIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* ════════════════════════════════════════
+   RESPONSIVE (375px min-width fallback) — Story 7.2
 ════════════════════════════════════════ */
 @media (max-width: 768px) {
   :root {
@@ -307,4 +365,36 @@ textarea { resize: vertical; }
     padding: 0 var(--content-padding);
     gap: var(--spacing-md);
   }
+
+  /* 首页英雄区改单列 */
+  .home-hero {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    min-height: unset;
+  }
+  .home-h1 { font-size: 36px; }
+
+  /* 模式选择网格改单列 */
+  .mode-grid { grid-template-columns: 1fr; }
+
+  /* 转盘布局改单列 */
+  .wheel-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: var(--spacing-lg) var(--content-padding);
+  }
+  .wheel-wrap { width: min(320px, 90vw) !important; height: min(320px, 90vw) !important; }
+  #mp-wheel-canvas { width: min(320px, 90vw) !important; height: min(320px, 90vw) !important; }
+
+  /* 顶部导航 */
+  .topnav__links { gap: 4px; }
+  .topnav__link  { font-size: 12px; padding: 4px 8px; }
+  .topnav__right { gap: 6px; }
+
+  /* 内容边距 */
+  .content-wrap { padding: var(--spacing-lg) var(--content-padding); }
+
+  /* 按钮最小点击区域 >= 44px (Story 7.2) */
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 36px; }
 }

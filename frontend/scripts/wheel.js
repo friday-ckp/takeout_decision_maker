@@ -23,7 +23,7 @@ function buildSegments(list) {
   const segs = [];
   list.forEach((r, idx) => {
     const color = SECTOR_COLORS[idx % SECTOR_COLORS.length];
-    const times = r.isFavorite ? 2 : 1;
+    const times = r.weight ?? (r.isFavorite ? 2 : 1);
     for (let i = 0; i < times; i++) segs.push({ ...r, _color: color });
   });
   return segs;
@@ -126,11 +126,12 @@ function spinWheel(canvas, segments, onDone) {
 
   const duration  = (2 + Math.random() * 2) * 1000;
   const startAng  = currentAngle;
-  const startTime = performance.now();
+  let startTime   = null;   // 在首帧 rAF 回调中赋值，避免沙盒环境计时偏差
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
 
   function frame(now) {
+    if (startTime === null) startTime = now;  // 首帧才开始计时
     const elapsed  = now - startTime;
     const progress = Math.min(elapsed / duration, 1);
     currentAngle   = startAng + easeOut(progress) * (targetAngle - startAng);
@@ -154,9 +155,11 @@ function renderReplayDots(replayCount, maxReplay) {
   const container = document.getElementById('replay-dots');
   if (!container) return;
   const remaining = maxReplay - replayCount;
-  container.innerHTML = Array.from({ length: maxReplay }, (_, i) =>
-    `<div class="${i < remaining ? 'rdot-filled' : 'rdot-empty'}"></div>`
-  ).join('');
+  if (remaining <= 0) {
+    container.innerHTML = `<span class="replay-count-text replay-count-empty">今日次数已用完</span>`;
+  } else {
+    container.innerHTML = `<span class="replay-count-text">今日剩余 <strong>${remaining}</strong> 次</span>`;
+  }
 }
 
 // ── 候选列表（右侧卡片）──────────────────────────────────────────
@@ -251,10 +254,10 @@ async function showResult(restaurant) {
 
   if (remaining <= 0) {
     replayBtn.disabled = true;
-    if (hint) hint.textContent = '今天的纠结次数已用完，就它了！';
+    if (hint) hint.textContent = '今日次数已用完，就它了！';
   } else {
     replayBtn.disabled = false;
-    if (hint) hint.textContent = `还可以换 ${remaining} 次`;
+    if (hint) hint.textContent = `今日剩余 ${remaining} 次`;
   }
 
   navigate('result');
@@ -269,6 +272,8 @@ async function confirmResult() {
   btn.textContent = '记录中…';
 
   try {
+    // 确认即消耗 1 次今日决策次数
+    await api.patch('/api/daily-config', { incrementReplay: true });
     await api.post('/api/history', { restaurantId: selectedResult.id, mode: 'wheel' });
     showToast('已记录，今天就吃这家！', 'success');
     navigate('home');
@@ -280,12 +285,23 @@ async function confirmResult() {
   }
 }
 
-// ── 换一个 ────────────────────────────────────────────────────────
+// ── 换一个（消耗 1 次今日次数）───────────────────────────────────
 async function replayWheel() {
   try { await api.patch('/api/daily-config', { incrementReplay: true }); }
   catch (err) { showToast(err.message || '换一个失败', 'error'); return; }
+
+  currentAngle = 0;
+  isSpinning   = false;
+  await loadDailyConfig();
+  renderReplayDots(dailyConfig?.replayCount ?? 0, dailyConfig?.maxReplayCount ?? 3);
   navigate('wheel');
-  setTimeout(triggerSpin, 300);
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById('wheel-canvas');
+    if (canvas) {
+      drawWheel(canvas, wheelSegments, 0);
+      setTimeout(triggerSpin, 300);
+    }
+  });
 }
 
 // ── 结果页重玩提示更新（供 minesweeper.js 调用）──────────────────
@@ -296,6 +312,31 @@ async function updateResultReplayHint() {
   const hint      = document.getElementById('result-replay-hint');
   if (replayBtn) replayBtn.disabled = remaining <= 0;
   if (hint) hint.textContent = remaining <= 0 ? '今天的纠结次数已用完！' : `还可以换 ${remaining} 次`;
+}
+
+// ── 决策页 onEnter：检查今日次数是否耗尽 ─────────────────────────
+async function enterDecidePage() {
+  await loadDailyConfig();
+  const replayCount    = dailyConfig?.replayCount    ?? 0;
+  const maxReplayCount = dailyConfig?.maxReplayCount ?? 3;
+  const exhausted      = replayCount >= maxReplayCount;
+
+  const wheelCard = document.getElementById('btn-choose-wheel');
+  const mineCard  = document.getElementById('btn-choose-mine');
+  const notice    = document.getElementById('decide-exhausted-notice');
+
+  if (wheelCard) wheelCard.classList.toggle('mode-card--disabled', exhausted);
+  if (mineCard)  mineCard.classList.toggle('mode-card--disabled',  exhausted);
+
+  // 禁用点击
+  if (wheelCard) wheelCard.dataset.exhausted = exhausted ? '1' : '';
+  if (mineCard)  mineCard.dataset.exhausted  = exhausted ? '1' : '';
+
+  if (notice) {
+    notice.style.display = exhausted
+      ? 'block'
+      : 'none';
+  }
 }
 
 // ── 进入决策页 ────────────────────────────────────────────────────
@@ -333,11 +374,13 @@ async function startWheelWithCandidates(candidates) {
   await loadDailyConfig();
   renderReplayDots(dailyConfig?.replayCount ?? 0, dailyConfig?.maxReplayCount ?? 3);
 
-  const canvas = document.getElementById('wheel-canvas');
-  drawWheel(canvas, wheelSegments, 0);
-  renderWheelCandidateList(wheelSegments);
-
+  // 先 navigate 让 canvas 出现在 DOM 可视区域，再通过 rAF 绘制
   navigate('wheel');
+  renderWheelCandidateList(wheelSegments);
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById('wheel-canvas');
+    if (canvas) drawWheel(canvas, wheelSegments, 0);
+  });
 }
 
 function triggerSpin() {
@@ -382,7 +425,7 @@ async function quickAdd() {
 
 // ── DOM Ready ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  registerPage('decide',       {});
+  registerPage('decide',       { onEnter: enterDecidePage });
   registerPage('wheel-select', {});
   registerPage('wheel',        {});
   registerPage('result',       {});
@@ -390,15 +433,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // 首页「开始决策」
   document.getElementById('btn-start-decision')?.addEventListener('click', () => navigate('decide'));
 
-  // 模式选择 → 转盘
+  // 模式选择 → 转盘（耗尽则不响应）
   const wheelCard = document.getElementById('btn-choose-wheel');
-  wheelCard?.addEventListener('click', enterDecideWheel);
-  wheelCard?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') enterDecideWheel(); });
+  wheelCard?.addEventListener('click', () => {
+    if (wheelCard.dataset.exhausted === '1') return;
+    enterDecideWheel();
+  });
+  wheelCard?.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && wheelCard.dataset.exhausted !== '1') enterDecideWheel();
+  });
 
-  // 模式选择 → 扫雷
+  // 模式选择 → 扫雷（耗尽则不响应）
   const mineCard = document.getElementById('btn-choose-mine');
-  mineCard?.addEventListener('click', () => navigate('mine'));
-  mineCard?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') navigate('mine'); });
+  mineCard?.addEventListener('click', () => {
+    if (mineCard.dataset.exhausted === '1') return;
+    navigate('mine');
+  });
+  mineCard?.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && mineCard.dataset.exhausted !== '1') navigate('mine');
+  });
 
   // 勾选页确认
   document.getElementById('btn-wheel-select-confirm')?.addEventListener('click', () => {

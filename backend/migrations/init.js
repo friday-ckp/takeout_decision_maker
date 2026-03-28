@@ -2,13 +2,17 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const mysql = require('mysql2/promise');
 
 const config = {
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: parseInt(process.env.DB_PORT || '3306', 10),
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'takeout_decision',
   multipleStatements: true,
 };
+if (process.env.DB_SOCKET) {
+  config.socketPath = process.env.DB_SOCKET;
+} else {
+  config.host = process.env.DB_HOST || '127.0.0.1';
+  config.port = parseInt(process.env.DB_PORT || '3306', 10);
+}
 
 const DDL = `
 -- 用户表
@@ -62,6 +66,8 @@ CREATE TABLE IF NOT EXISTS daily_config (
   mood         VARCHAR(20)  NULL,
   flavor_tags  VARCHAR(255) NULL COMMENT '口味偏好，JSON数组字符串',
   replay_count INT UNSIGNED NOT NULL DEFAULT 0,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_user_date (user_id, date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -80,8 +86,9 @@ CREATE TABLE IF NOT EXISTS decision_sessions (
   id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   host_user_id       INT UNSIGNED NOT NULL,
   share_token        VARCHAR(64)  NOT NULL UNIQUE,
-  candidate_snapshot TEXT         NULL COMMENT '候选餐厅ID快照，JSON数组',
-  status             ENUM('waiting', 'active', 'done') NOT NULL DEFAULT 'waiting',
+  mode               ENUM('wheel', 'minesweeper') NOT NULL DEFAULT 'wheel',
+  candidate_snapshot TEXT         NULL COMMENT '展开后权重数组，JSON格式',
+  status             ENUM('waiting', 'deciding', 'deciding_locked', 'done', 'expired') NOT NULL DEFAULT 'waiting',
   expires_at         DATETIME     NOT NULL,
   created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

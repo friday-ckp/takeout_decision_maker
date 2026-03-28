@@ -1,12 +1,20 @@
 require('dotenv').config();
+const http = require('http');
 const app = require('./app');
 const { testConnection } = require('./models/db');
+const { attachWebSocketServer } = require('./websocket/server');
 
 const PORT = process.env.PORT || 3000;
 
 async function start() {
-  // 启动 HTTP 服务（无论数据库是否可用，前端始终可访问）
-  app.listen(PORT, () => {
+  // 创建 HTTP server（供 WebSocket 共享）
+  const server = http.createServer(app);
+
+  // 附加 WebSocket 服务器
+  attachWebSocketServer(server);
+
+  // 启动监听
+  server.listen(PORT, () => {
     console.log(`[Server] 外卖决策器后端已启动，监听端口 ${PORT}`);
     console.log(`[Server] 访问地址: http://localhost:${PORT}`);
   });

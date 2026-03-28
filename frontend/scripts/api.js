@@ -14,10 +14,12 @@ async function apiFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(path, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers });
+  } catch (networkErr) {
+    throw { code: 0, message: '网络连接异常，请检查后重试' };
+  }
 
   let body;
   try {

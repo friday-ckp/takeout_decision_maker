@@ -346,14 +346,14 @@ async function handleToggleBlock(restaurantId) {
 
   const isBlocked = !!restaurant.isBlocked;
   const action = isBlocked ? '解除拉黑' : '拉黑';
-  if (!isBlocked && !confirm(`确定要拉黑「${restaurant.name}」吗？\n拉黑后不会出现在候选列表中。`)) return;
 
   try {
     const data = await api.post(`/api/restaurants/${restaurantId}/block`, {});
     const idx = restaurantList.findIndex(r => r.id === restaurantId);
     if (idx !== -1) restaurantList[idx].isBlocked = data.isBlocked;
     showToast(data.isBlocked ? '已拉黑' : '已解除拉黑', 'success');
-    await loadRestaurants();
+    renderRestaurantList(restaurantList);
+    updateStats(restaurantList);
   } catch (err) {
     showToast(err.message || `${action}失败`, 'error');
   }
