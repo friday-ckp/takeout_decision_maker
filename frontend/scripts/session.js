@@ -27,6 +27,17 @@ let remainingReplays = 3;
 let mpSpinCountdownTimer = null;
 let mpSpinTotalParticipants = 0;
 let mpSpinHasVoted = false;
+// nickname → { status:'waiting'|'spinning'|'voted', restaurant:string|null }
+const mpParticipantStatuses = new Map();
+
+// 头像颜色池
+const MP_AVATAR_COLORS = [
+  { bg: 'rgba(233,69,96,0.2)',  text: '#e94560' },
+  { bg: 'rgba(46,204,113,0.2)', text: '#2ecc71' },
+  { bg: 'rgba(245,166,35,0.2)', text: '#f5a623' },
+  { bg: 'rgba(155,89,182,0.2)', text: '#9b59b6' },
+  { bg: 'rgba(52,152,219,0.2)', text: '#3498db' },
+];
 
 // WebSocket 实例（Story 6.12 断线重连）
 let ws = null;
@@ -67,7 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // 多人转盘旋转（所有人均可触发，Story 6.9-V2）
   document.getElementById('btn-mp-wheel-spin')?.addEventListener('click', handleMpWheelSpinVote);
 
-  // 结果页操作
+  // 多人转盘结果 Overlay 操作
+  document.getElementById('btn-mp-confirm')?.addEventListener('click', handleMpConfirm);
+  document.getElementById('btn-mp-replay')?.addEventListener('click',  handleMpReplay);
+  document.getElementById('btn-mp-tie-ok')?.addEventListener('click',  () => {
+    document.getElementById('mp-tie-overlay')?.classList.remove('show');
+  });
+
+  // 结果页操作（扫雷模式 / 单人模式）
   document.getElementById('btn-sr-confirm')?.addEventListener('click', handleConfirm);
   document.getElementById('btn-sr-replay')?.addEventListener('click',  handleReplay);
   document.getElementById('btn-done-home')?.addEventListener('click',  () => navigate('home'));
@@ -116,7 +134,7 @@ async function createAndGoLobby(mode) {
     const data = await api.post('/api/sessions', { mode });
     sessionToken    = data.shareToken;
     sessionMode     = mode;
-    sessionUserId   = 1;
+    sessionUserId   = data.hostUserId;
     sessionNickname = '我（发起人）';
     isHost          = true;
 
@@ -396,6 +414,8 @@ function onSessionDone(data) {
 function onReplayInitiated(data) {
   remainingReplays = data.remainingReplays;
   _stopMpCountdown();
+  // 关闭结果 Overlay
+  document.getElementById('mp-result-overlay')?.classList.remove('show');
   navigate('multiplayer');
   // 重置多人决策界面
   if (sessionMode === 'wheel') {
@@ -451,11 +471,8 @@ function updateStartButton(count) {
 
 // ── onEnterMultiplayer ─────────────────────────────────────────────
 function onEnterMultiplayer() {
-  document.getElementById('mp-page-title').textContent =
-    sessionMode === 'wheel' ? '🎡 多人转盘' : '💣 多人扫雷';
-
-  // 渲染参与者 bar（简版）
-  renderMpParticipantsBar();
+  const titleEl = document.getElementById('mp-page-title');
+  if (titleEl) titleEl.textContent = sessionMode === 'wheel' ? '🎡 多人转盘' : '💣 多人扫雷';
 
   if (sessionMode === 'wheel') {
     document.getElementById('mp-wheel-area')?.classList.remove('hidden');
@@ -473,17 +490,79 @@ function onEnterMultiplayer() {
   }
 }
 
-function renderMpParticipantsBar() {
-  const bar = document.getElementById('mp-participants-bar');
-  if (!bar) return;
-  bar.innerHTML = '';
-  // 从 lobby 参与者列表获取
+function renderMpParticipantsPanel() {
+  const panel = document.getElementById('mp-participants-panel');
+  if (!panel) return;
+  panel.innerHTML = '';
+  mpParticipantStatuses.clear();
+
   const items = document.querySelectorAll('#lobby-participants-list .participant-item');
-  items.forEach(item => {
+  items.forEach((item, idx) => {
+    const nick = item.dataset.nickname || '';
+    mpParticipantStatuses.set(nick, { status: 'waiting', restaurant: null });
+
+    const color = MP_AVATAR_COLORS[idx % MP_AVATAR_COLORS.length];
+    const firstChar = escapeHtml(nick.charAt(0).toUpperCase() || '?');
+    const isMe = (nick === sessionNickname);
+    const isHostNick = item.querySelector('.p-badge') !== null;
+
+    const div = document.createElement('div');
+    div.className = 'mp-participant';
+    div.dataset.mpNick = nick;
+    div.innerHTML = `
+      <div class="mp-avatar" style="background:${color.bg};color:${color.text}">${firstChar}</div>
+      <div class="mp-pinfo">
+        <div class="mp-pname">${escapeHtml(nick)}${isMe ? ' <span style="font-size:10px;color:#e94560;background:rgba(233,69,96,0.15);border-radius:4px;padding:1px 5px;margin-left:4px">你</span>' : ''}${isHostNick ? ' <span style="font-size:10px;color:#6b7280;background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;margin-left:4px">发起人</span>' : ''}</div>
+        <div class="mp-pstatus waiting" id="mp-pstatus-${CSS.escape(nick)}">等待投票...</div>
+      </div>
+    `;
+    panel.appendChild(div);
+  });
+}
+
+function updateParticipantVoteStatus(nickname, status, restaurant) {
+  mpParticipantStatuses.set(nickname, { status, restaurant });
+  const el = document.getElementById(`mp-pstatus-${CSS.escape(nickname)}`);
+  const div = document.querySelector(`[data-mp-nick="${CSS.escape(nickname)}"]`);
+  if (!el) return;
+  el.className = `mp-pstatus ${status}`;
+  if (status === 'waiting')  el.textContent = '等待投票...';
+  if (status === 'spinning') el.textContent = '⟳ 正在转盘中...';
+  if (status === 'voted') {
+    el.textContent = `✓ 已投票${restaurant ? ' — ' + restaurant : ''}`;
     const chip = document.createElement('div');
-    chip.style.cssText = 'padding:4px 12px;background:#e0e7ff;border-radius:999px;font-size:13px;color:#4f46e5;font-weight:600';
-    chip.textContent = item.dataset.nickname || '';
-    bar.appendChild(chip);
+    chip.className = 'mp-vote-chip';
+    chip.textContent = '已转';
+    // remove existing chip first
+    div?.querySelector('.mp-vote-chip')?.remove();
+    div?.appendChild(chip);
+  }
+}
+
+// ── 渲染候选餐厅列表 ──────────────────────────────────────────────
+function renderMpCandidateList(voteCounts) {
+  const el = document.getElementById('mp-candidate-list');
+  if (!el) return;
+  el.innerHTML = '';
+  // 去重：相同 id 或相同 name 只出现一次
+  const seen = new Set();
+  const unique = candidateSnapshot.filter(item => {
+    const key = item.id != null ? `id:${item.id}` : `n:${item.name}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  unique.forEach(item => {
+    const key = item.id != null ? String(item.id) : item.name;
+    const votes = voteCounts ? (voteCounts[key] || 0) : 0;
+    const row = document.createElement('div');
+    row.className = 'mp-candidate-row';
+    row.dataset.mpCandidate = key;
+    row.innerHTML = `
+      <span>${escapeHtml(item.name || '')}</span>
+      <span class="mp-candidate-votes-num ${votes > 0 ? 'has-votes' : 'no-votes'}" id="mp-cv-${CSS.escape(key)}">${votes > 0 ? votes + ' 票' : '0 票'}</span>
+    `;
+    el.appendChild(row);
   });
 }
 
@@ -495,23 +574,25 @@ function initMpWheel() {
 
   mpSpinHasVoted = false;
   const btn = document.getElementById('btn-mp-wheel-spin');
-  const label = document.getElementById('mp-spin-label');
-  btn.disabled = false;
-  if (label) label.textContent = '转！';
+  if (btn) { btn.disabled = false; btn.className = 'mp-spin-btn'; btn.textContent = '转 !'; }
+  const hintEl = document.getElementById('mp-spin-hint');
+  if (hintEl) hintEl.textContent = '点击转盘开始投票';
 
-  // 隐藏上次的提示横幅
-  document.getElementById('mp-tie-banner')?.classList.add('hidden');
-  document.getElementById('mp-no-result-banner')?.classList.add('hidden');
-
-  // 获取参与人数：从 lobby 参与者列表计算
+  // 获取参与人数
   const items = document.querySelectorAll('#lobby-participants-list .participant-item');
   mpSpinTotalParticipants = items.length || 1;
 
-  // 更新进度文字
-  const progressEl = document.getElementById('mp-spin-progress-text');
-  if (progressEl) progressEl.textContent = `0/${mpSpinTotalParticipants} 人已转`;
+  // 更新进度 UI
+  const voteCountEl = document.getElementById('mp-vote-count');
+  const voteTotalEl = document.getElementById('mp-vote-total');
+  if (voteCountEl) voteCountEl.textContent = '0';
+  if (voteTotalEl) voteTotalEl.textContent = mpSpinTotalParticipants;
 
-  // 启动本地 30s 倒计时（与服务端超时同步）
+  // 渲染右侧面板
+  renderMpParticipantsPanel();
+  renderMpCandidateList(null);
+
+  // 启动本地 30s 倒计时
   _startMpCountdown(30);
 }
 
@@ -519,24 +600,28 @@ function _startMpCountdown(seconds) {
   clearInterval(mpSpinCountdownTimer);
   let remaining = seconds;
   const countEl = document.getElementById('mp-spin-countdown');
-  if (countEl) countEl.textContent = remaining;
+  const fillEl  = document.getElementById('mp-progress-fill');
+  if (countEl) { countEl.textContent = remaining; countEl.className = 'mp-countdown-num'; }
+  if (fillEl)  fillEl.style.width = '100%';
 
   mpSpinCountdownTimer = setInterval(() => {
     remaining--;
     if (countEl) {
       countEl.textContent = remaining;
-      countEl.style.color = remaining <= 5 ? '#dc2626' : remaining <= 10 ? '#d97706' : '#7c3aed';
+      countEl.className = 'mp-countdown-num' +
+        (remaining <= 5 ? ' danger' : remaining <= 10 ? ' warning' : '');
     }
-    if (remaining <= 0) {
-      clearInterval(mpSpinCountdownTimer);
-    }
+    if (fillEl) fillEl.style.width = Math.max(0, remaining / seconds * 100) + '%';
+    if (remaining <= 0) clearInterval(mpSpinCountdownTimer);
   }, 1000);
 }
 
 function _stopMpCountdown() {
   clearInterval(mpSpinCountdownTimer);
   const countEl = document.getElementById('mp-spin-countdown');
-  if (countEl) { countEl.textContent = '0'; countEl.style.color = '#9ca3af'; }
+  const fillEl  = document.getElementById('mp-progress-fill');
+  if (countEl) { countEl.textContent = '0'; countEl.className = 'mp-countdown-num'; }
+  if (fillEl)  fillEl.style.width = '0%';
 }
 
 /**
@@ -548,10 +633,15 @@ function handleMpWheelSpinVote() {
   if (candidateSnapshot.length === 0) return;
 
   const btn = document.getElementById('btn-mp-wheel-spin');
-  const label = document.getElementById('mp-spin-label');
+  const hintEl = document.getElementById('mp-spin-hint');
   btn.disabled = true;
+  btn.className = 'mp-spin-btn spinning';
+  btn.textContent = '转盘中...';
   mpSpinHasVoted = true;
-  if (label) label.textContent = '旋转中…';
+  if (hintEl) hintEl.textContent = '正在旋转，请稍候';
+
+  // 更新自己的参与者状态
+  updateParticipantVoteStatus(sessionNickname, 'spinning', null);
 
   // 本地随机决定结果
   const localIndex = Math.floor(Math.random() * candidateSnapshot.length);
@@ -559,15 +649,20 @@ function handleMpWheelSpinVote() {
 
   // 播放旋转动画，结束后提交
   playLocalWheelAnimation(localIndex, () => {
-    if (label) label.textContent = '✓ 已投票';
-    ws.send(JSON.stringify({
-      event: 'spin_submitted',
-      data: {
-        resultRestaurantId: localResult.id,
-        resultRestaurantName: localResult.name,
-        resultIndex: localIndex,
-      },
-    }));
+    btn.className = 'mp-spin-btn voted';
+    btn.textContent = '✓ 已投票';
+    if (hintEl) hintEl.textContent = '等待其他人完成投票...';
+    updateParticipantVoteStatus(sessionNickname, 'voted', localResult.name);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        event: 'spin_submitted',
+        data: {
+          resultRestaurantId: localResult.id,
+          resultRestaurantName: localResult.name,
+          resultIndex: localIndex,
+        },
+      }));
+    }
   });
 }
 
@@ -589,7 +684,7 @@ function playLocalWheelAnimation(resultIndex, onComplete) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const r = cx - 4;
-  const colors = ['#fde8c0', '#dde6ff', '#d1fae5', '#fce7f3', '#fef3c7', '#e0f2fe'];
+  const colors = ['#e94560','#0f3460','#533483','#1a6b8a','#2d6a4f','#7c3aed','#c0392b','#e67e22'];
   const arc = (2 * Math.PI) / total;
 
   function ease(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
@@ -606,18 +701,26 @@ function playLocalWheelAnimation(resultIndex, onComplete) {
       ctx.closePath();
       ctx.fillStyle = colors[i % colors.length];
       ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate((start + end) / 2);
       ctx.textAlign = 'right';
-      ctx.fillStyle = '#333';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
       ctx.font = `bold ${Math.max(10, 14 - total / 3)}px sans-serif`;
       ctx.fillText(item.name?.slice(0, 6) || '', r - 8, 5);
       ctx.restore();
     });
+    // Dark center circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(233,69,96,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 
   function animate(now) {
@@ -631,59 +734,119 @@ function playLocalWheelAnimation(resultIndex, onComplete) {
 // ── spin_progress：更新投票进度 ───────────────────────────────────
 function onSpinProgress(data) {
   const { spunCount, totalCount } = data;
-  const progressEl = document.getElementById('mp-spin-progress-text');
-  if (progressEl) progressEl.textContent = `${spunCount}/${totalCount} 人已转`;
   mpSpinTotalParticipants = totalCount;
+  const voteCountEl = document.getElementById('mp-vote-count');
+  const voteTotalEl = document.getElementById('mp-vote-total');
+  if (voteCountEl) voteCountEl.textContent = spunCount;
+  if (voteTotalEl) voteTotalEl.textContent = totalCount;
 }
 
-// ── round_result：投票结果揭晓 ────────────────────────────────────
+// ── round_result：投票结果揭晓（转盘模式 Overlay）────────────────
 function onRoundResult(data) {
   _stopMpCountdown();
   const { winner, allVotes } = data;
   currentResult = {
-    resultRestaurantId: winner.restaurantId,
+    resultRestaurantId:   winner.restaurantId,
     resultRestaurantName: winner.restaurantName,
   };
-  navigateToSessionResult(winner.restaurantName, winner.votes, allVotes);
+
+  // 更新所有参与者最终状态
+  if (Array.isArray(allVotes)) {
+    allVotes.forEach(v => {
+      updateParticipantVoteStatus(v.nickname, 'voted', v.restaurantName);
+    });
+  }
+
+  // 填充 Overlay 内容
+  const nameEl       = document.getElementById('mp-result-name');
+  const voteCountEl  = document.getElementById('mp-result-vote-count');
+  const breakdownEl  = document.getElementById('mp-vote-breakdown');
+  const replayHintEl = document.getElementById('mp-replay-hint');
+
+  if (nameEl)      nameEl.textContent = winner.restaurantName || '';
+  if (voteCountEl) voteCountEl.textContent = winner.votes || 0;
+  if (replayHintEl) replayHintEl.textContent = `（剩余 ${remainingReplays} 次）`;
+
+  if (breakdownEl && Array.isArray(allVotes)) {
+    breakdownEl.innerHTML = allVotes.map(v =>
+      `<div class="mp-vote-row">
+        <span style="color:#6b7280">${escapeHtml(v.nickname)}</span>
+        <span style="font-weight:500;color:${v.isWinner ? '#2ecc71' : '#e8e8f0'}">${escapeHtml(v.restaurantName || '弃权')}${v.isWinner ? ' ✓' : ''}</span>
+      </div>`
+    ).join('');
+  }
+
+  // 发起人 vs 受邀者操作区
+  const hostActionsEl  = document.getElementById('mp-result-host-actions');
+  const guestWaitingEl = document.getElementById('mp-result-guest-waiting');
+  if (isHost) {
+    hostActionsEl?.classList.remove('hidden');
+    hostActionsEl && (hostActionsEl.style.display = 'flex');
+    guestWaitingEl?.classList.add('hidden');
+  } else {
+    hostActionsEl?.classList.add('hidden');
+    guestWaitingEl?.classList.remove('hidden');
+  }
+
+  // 显示 Overlay
+  document.getElementById('mp-result-overlay')?.classList.add('show');
 }
 
-// ── tie_break_start：平局，进入决胜轮 ────────────────────────────
+// ── tie_break_start：平局，进入决胜轮（全屏 Overlay）────────────
 function onTieBreakStart(data) {
   const { round, candidates, tiedRestaurants } = data;
 
   // 更新候选池为平局餐厅
   candidateSnapshot = candidates || candidateSnapshot;
 
-  // 显示平局横幅
-  const banner = document.getElementById('mp-tie-banner');
-  const roundEl = document.getElementById('mp-tie-round');
-  const descEl = document.getElementById('mp-tie-desc');
-  if (banner) banner.classList.remove('hidden');
+  // 填充 Tie Overlay
+  const roundEl      = document.getElementById('mp-tie-round');
+  const candidatesEl = document.getElementById('mp-tie-candidates');
+
   if (roundEl) roundEl.textContent = round;
-  if (descEl) {
-    const names = (tiedRestaurants || []).map(r => r.restaurantName).join(' vs ');
-    descEl.textContent = `${names} 票数相同，继续转盘！`;
+  if (candidatesEl) {
+    candidatesEl.innerHTML = (tiedRestaurants || []).map(r =>
+      `<div class="mp-tie-chip">${escapeHtml(r.restaurantName || '')}</div>`
+    ).join('');
   }
 
-  // 重置转盘界面进入新一轮
-  initMpWheel();
+  // 点 OK 后重置转盘
+  const tieOkBtn = document.getElementById('btn-mp-tie-ok');
+  if (tieOkBtn) {
+    const handler = () => {
+      document.getElementById('mp-tie-overlay')?.classList.remove('show');
+      initMpWheel();
+      tieOkBtn.removeEventListener('click', handler);
+    };
+    tieOkBtn.addEventListener('click', handler);
+  }
+
+  // 先重置转盘 UI（新候选），再显示 Overlay
+  drawMpWheel(document.getElementById('mp-wheel-canvas'), candidateSnapshot);
+  document.getElementById('mp-tie-overlay')?.classList.add('show');
 }
 
 // ── no_result：所有人超时弃权 ────────────────────────────────────
 function onNoResult(data) {
   _stopMpCountdown();
-  const banner = document.getElementById('mp-no-result-banner');
-  if (banner) banner.classList.remove('hidden');
+  showToast('没有人转盘，服务端已重置，请重新投票', 'error');
   // 恢复按钮可点击（让用户重试）
   mpSpinHasVoted = false;
   const btn = document.getElementById('btn-mp-wheel-spin');
-  const label = document.getElementById('mp-spin-label');
-  if (btn) btn.disabled = false;
-  if (label) label.textContent = '重新转！';
+  if (btn) { btn.disabled = false; btn.className = 'mp-spin-btn'; btn.textContent = '重新转！'; }
+  const hintEl = document.getElementById('mp-spin-hint');
+  if (hintEl) hintEl.textContent = '点击转盘重新投票';
+  // 重置参与者状态
+  mpParticipantStatuses.forEach((v, nick) => {
+    updateParticipantVoteStatus(nick, 'waiting', null);
+  });
+  _startMpCountdown(30);
 }
 
 function resetMpWheel() {
   _stopMpCountdown();
+  document.getElementById('mp-result-overlay')?.classList.remove('show');
+  document.getElementById('mp-tie-overlay')?.classList.remove('show');
   initMpWheel();
 }
 
@@ -783,7 +946,37 @@ function navigateToSessionResult(restaurantName, votes, allVotes) {
   navigate('session-result');
 }
 
-// ── 发起人确认结果（Story 6.11）──────────────────────────────────
+// ── 发起人确认结果（转盘模式 Overlay，Story 6.11）────────────────
+async function handleMpConfirm() {
+  if (!currentResult) return;
+  const btn = document.getElementById('btn-mp-confirm');
+  if (btn) btn.disabled = true;
+  try {
+    await api.post(`/api/sessions/${sessionToken}/confirm`, {
+      resultRestaurantId:   currentResult.resultRestaurantId,
+      resultRestaurantName: currentResult.resultRestaurantName,
+    });
+    // session_done WS 事件会触发跳转
+  } catch (e) {
+    showToast(e.message || '确认失败，请重试', 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── 发起人换一个（转盘模式 Overlay，Story 6.11）───────────────────
+async function handleMpReplay() {
+  const btn = document.getElementById('btn-mp-replay');
+  if (btn) btn.disabled = true;
+  try {
+    await api.post(`/api/sessions/${sessionToken}/replay`, {});
+    // replay_initiated WS 事件会触发
+  } catch (e) {
+    showToast(e.message || '重玩失败', 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── 发起人确认结果（单人/扫雷模式，Story 6.11）───────────────────
 async function handleConfirm() {
   if (!currentResult) return;
   const btn = document.getElementById('btn-sr-confirm');
@@ -800,7 +993,7 @@ async function handleConfirm() {
   }
 }
 
-// ── 发起人换一个（Story 6.11）────────────────────────────────────
+// ── 发起人换一个（单人/扫雷模式，Story 6.11）─────────────────────
 async function handleReplay() {
   const btn = document.getElementById('btn-sr-replay');
   btn.disabled = true;
@@ -813,19 +1006,14 @@ async function handleReplay() {
   }
 }
 
-// ── 辅助：多人转盘绘制（避免与 wheel.js 的 drawWheel 冲突）────────
+// ── 辅助：多人转盘绘制（深色主题，避免与 wheel.js 冲突）────────
 function drawMpWheel(canvas, items) {
-  if (typeof window.drawWheelOnCanvas === 'function') {
-    window.drawWheelOnCanvas(canvas, items);
-    return;
-  }
-  // 简版 fallback
   const ctx = canvas.getContext('2d');
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const r = cx - 4;
-  const n = items.length;
-  const colors = ['#fde8c0','#dde6ff','#d1fae5','#fce7f3','#fef3c7','#e0f2fe'];
+  const r  = cx - 4;
+  const n  = items.length;
+  const colors = ['#e94560','#0f3460','#533483','#1a6b8a','#2d6a4f','#7c3aed','#c0392b','#e67e22'];
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   items.forEach((item, i) => {
@@ -837,17 +1025,26 @@ function drawMpWheel(canvas, items) {
     ctx.closePath();
     ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate((start + end) / 2);
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.font = `bold ${Math.max(10, 14 - n / 3)}px sans-serif`;
     ctx.fillText(item.name?.slice(0, 6) || '', r - 8, 5);
     ctx.restore();
   });
+
+  // Dark center circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(233,69,96,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }

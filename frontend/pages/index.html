@@ -5,8 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>今天吃啥</title>
-  <link rel="stylesheet" href="../styles/variables.css?v=8" />
-  <link rel="stylesheet" href="../styles/main.css?v=8" />
+  <link rel="stylesheet" href="../styles/variables.css?v=9" />
+  <link rel="stylesheet" href="../styles/main.css?v=9" />
   <style>
 /* ════════════════════════════════════════════════════════
    HOME PAGE — 渐变背景 + blob 动画
@@ -632,6 +632,161 @@
   .result-right  { max-width: 420px; margin: 0 auto; width: 100%; }
   .side-panel    { width: 100%; }
 }
+
+/* ════════════════════════════════════════════════════════
+   MULTI-PLAYER DARK THEME (page-multiplayer)
+════════════════════════════════════════════════════════ */
+#page-multiplayer {
+  background: #0f0f1a;
+  min-height: calc(100vh - var(--topnav-height));
+  position: relative;
+}
+.mp-dark {
+  background: #0f0f1a;
+  color: #e8e8f0;
+  min-height: calc(100vh - var(--topnav-height));
+}
+.mp-header {
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(26,26,46,0.9);
+  position: sticky; top: var(--topnav-height, 56px); z-index: 10;
+}
+.mp-header-title { font-size: 17px; font-weight: 700; color: #e8e8f0; }
+.mp-session-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(233,69,96,0.15); border: 1px solid rgba(233,69,96,0.3);
+  border-radius: 20px; padding: 4px 12px; font-size: 12px; color: #e94560;
+}
+.mp-session-badge::before {
+  content: ''; width: 6px; height: 6px; background: #e94560; border-radius: 50%;
+  animation: mpPulse 1.5s infinite;
+}
+@keyframes mpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.mp-reconnect-badge { font-size: 12px; color: #f5a623; }
+.mp-main-layout {
+  display: grid; grid-template-columns: 1fr 300px; gap: 24px;
+  max-width: 1080px; margin: 0 auto; padding: 24px; width: 100%;
+}
+.mp-wheel-zone { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+/* Countdown */
+.mp-countdown-bar {
+  width: 100%; background: #1a1a2e; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+}
+.mp-countdown-num {
+  font-size: 36px; font-weight: 700; color: #e94560; min-width: 52px; text-align: center; line-height: 1;
+}
+.mp-countdown-num.warning { color: #f5a623; }
+.mp-countdown-num.danger  { color: #ff4757; animation: mpShake 0.3s infinite; }
+@keyframes mpShake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-2px); } 75% { transform:translateX(2px); } }
+.mp-countdown-info { flex: 1; }
+.mp-countdown-label { font-size: 13px; color: #6b7280; margin-bottom: 6px; }
+.mp-progress-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+.mp-progress-fill  { height: 100%; background: linear-gradient(90deg, #0f3460, #e94560); border-radius: 3px; transition: width 1s linear; }
+.mp-vote-progress  { font-size: 13px; color: #6b7280; margin-top: 4px; }
+.mp-vote-progress strong { color: #2ecc71; }
+/* Wheel Canvas */
+.mp-wheel-container { position: relative; width: 320px; height: 320px; }
+.mp-wheel-canvas {
+  width: 320px; height: 320px; border-radius: 50%;
+  border: 3px solid rgba(233,69,96,0.4);
+  box-shadow: 0 0 40px rgba(233,69,96,0.2), 0 0 80px rgba(15,52,96,0.4);
+}
+.mp-wheel-pointer {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 10px solid transparent; border-right: 10px solid transparent;
+  border-top: 22px solid #e94560;
+  filter: drop-shadow(0 0 6px rgba(233,69,96,0.8)); z-index: 2;
+}
+.mp-wheel-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 48px; height: 48px; background: #0f0f1a; border: 3px solid #e94560;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; z-index: 2;
+}
+/* Spin Button */
+.mp-spin-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.mp-spin-btn {
+  width: 180px; height: 52px;
+  background: linear-gradient(135deg, #e94560, #c0392b);
+  border: none; border-radius: 26px; color: white; font-size: 18px;
+  font-weight: 700; cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(233,69,96,0.4); letter-spacing: 2px;
+}
+.mp-spin-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(233,69,96,0.5); }
+.mp-spin-btn.voted {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  box-shadow: 0 4px 20px rgba(46,204,113,0.3); cursor: not-allowed; font-size: 15px; letter-spacing: 0;
+}
+.mp-spin-btn.spinning {
+  background: linear-gradient(135deg, #f5a623, #e67e22);
+  box-shadow: 0 4px 20px rgba(245,166,35,0.4); cursor: not-allowed;
+  animation: mpGlow 0.5s infinite alternate;
+}
+@keyframes mpGlow { from { box-shadow: 0 4px 20px rgba(245,166,35,0.4); } to { box-shadow: 0 4px 30px rgba(245,166,35,0.7); } }
+.mp-spin-hint { font-size: 12px; color: #6b7280; }
+/* Panel */
+.mp-panel { display: flex; flex-direction: column; gap: 16px; }
+.mp-panel-card {
+  background: #1a1a2e; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 16px; color: #e8e8f0;
+}
+.mp-panel-title {
+  font-size: 11px; font-weight: 600; color: #6b7280;
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+}
+.mp-participant { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.mp-participant:last-child { border-bottom: none; }
+.mp-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; flex-shrink: 0; }
+.mp-pinfo { flex: 1; min-width: 0; }
+.mp-pname { font-size: 14px; font-weight: 500; color: #e8e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-pstatus { font-size: 11px; margin-top: 2px; }
+.mp-pstatus.waiting  { color: #6b7280; }
+.mp-pstatus.spinning { color: #f5a623; }
+.mp-pstatus.voted    { color: #2ecc71; }
+.mp-vote-chip { font-size: 11px; background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); border-radius: 10px; padding: 2px 8px; flex-shrink: 0; }
+.mp-candidate-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #e8e8f0; padding: 4px 0; }
+.mp-candidate-votes-num { font-weight: 600; }
+.mp-candidate-votes-num.has-votes { color: #2ecc71; }
+.mp-candidate-votes-num.no-votes  { color: #6b7280; }
+/* Overlays */
+.mp-overlay-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+  z-index: 9999; align-items: center; justify-content: center;
+}
+.mp-overlay-bg.show { display: flex; }
+.mp-result-card {
+  background: #1a1a2e; border: 1px solid rgba(233,69,96,0.3); border-radius: 24px;
+  padding: 36px; text-align: center; max-width: 400px; width: 90%;
+  box-shadow: 0 0 60px rgba(233,69,96,0.2); animation: mpPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.mp-result-name { font-size: 34px; font-weight: 800; color: #e8e8f0; margin-bottom: 8px; line-height: 1.2; word-break: break-all; }
+.mp-result-votes { font-size: 14px; color: #f5a623; margin-bottom: 20px; }
+.mp-vote-breakdown { background: rgba(255,255,255,0.04); border-radius: 12px; padding: 12px; margin-bottom: 20px; }
+.mp-vote-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.mp-vote-row:last-child { border-bottom: none; }
+.mp-result-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: linear-gradient(135deg,#e94560,#c0392b); color: white; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+.mp-result-btn:hover { transform: translateY(-1px); }
+.mp-result-btn-sec { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: transparent; color: #e8e8f0; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+.mp-result-btn-sec:hover { background: rgba(255,255,255,0.08); }
+.mp-tie-card {
+  background: #1a1a2e; border: 1px solid rgba(245,166,35,0.3); border-radius: 24px;
+  padding: 32px; text-align: center; max-width: 380px; width: 90%;
+  box-shadow: 0 0 60px rgba(245,166,35,0.15); animation: mpPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.mp-tie-desc { font-size: 14px; color: #6b7280; margin-bottom: 20px; }
+.mp-tie-candidates { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+.mp-tie-chip { background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.4); border-radius: 20px; padding: 6px 16px; font-size: 14px; font-weight: 600; color: #f5a623; }
+.mp-tie-btn { width: 100%; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(135deg,#f5a623,#e67e22); color: white; font-size: 15px; font-weight: 600; cursor: pointer; }
+@keyframes mpPopIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (max-width: 760px) {
+  .mp-main-layout { grid-template-columns: 1fr; }
+  .mp-panel { display: none; }
+}
   </style>
 </head>
 <body>
@@ -1118,58 +1273,107 @@
 
 <!-- ══ 多人决策页（Story 6.9/6.10）══════════════════════════════ -->
 <div class="app-page hidden" id="page-multiplayer">
-  <div class="content-wrap" style="max-width:900px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:22px;font-weight:900;color:#111" id="mp-page-title">多人决策</div>
-      <div id="mp-reconnect-hint" class="hidden" style="font-size:12px;color:#f59e0b;display:flex;align-items:center;gap:4px">
-        <span>🔄</span><span>重连中…</span>
+  <div class="mp-dark">
+
+    <!-- Header -->
+    <div class="mp-header">
+      <div class="mp-header-title" id="mp-page-title">🎡 多人转盘</div>
+      <div id="mp-reconnect-hint" class="hidden mp-reconnect-badge">🔄 重连中…</div>
+      <div class="mp-session-badge">实时会话</div>
+    </div>
+
+    <!-- ── Wheel Mode Layout ── -->
+    <div id="mp-wheel-area" class="hidden mp-main-layout">
+
+      <!-- Left: Wheel Zone -->
+      <div class="mp-wheel-zone">
+
+        <!-- Countdown Bar -->
+        <div class="mp-countdown-bar">
+          <div class="mp-countdown-num" id="mp-spin-countdown">30</div>
+          <div class="mp-countdown-info">
+            <div class="mp-countdown-label">距离自动统计剩余时间</div>
+            <div class="mp-progress-track">
+              <div class="mp-progress-fill" id="mp-progress-fill" style="width:100%"></div>
+            </div>
+            <div class="mp-vote-progress">已有 <strong id="mp-vote-count">0</strong> / <span id="mp-vote-total">?</span> 人完成投票</div>
+          </div>
+        </div>
+
+        <!-- Wheel Canvas -->
+        <div class="mp-wheel-container">
+          <div class="mp-wheel-pointer"></div>
+          <canvas id="mp-wheel-canvas" width="320" height="320" class="mp-wheel-canvas"></canvas>
+          <div class="mp-wheel-center">🎯</div>
+        </div>
+
+        <!-- Spin Button -->
+        <div class="mp-spin-btn-wrap">
+          <button class="mp-spin-btn" id="btn-mp-wheel-spin">转 !</button>
+          <div class="mp-spin-hint" id="mp-spin-hint">点击转盘开始投票</div>
+        </div>
+
+      </div>
+
+      <!-- Right: Panel -->
+      <div class="mp-panel">
+
+        <!-- Participants -->
+        <div class="mp-panel-card">
+          <div class="mp-panel-title">参与者</div>
+          <div id="mp-participants-panel"></div>
+        </div>
+
+        <!-- Candidate Snapshot -->
+        <div class="mp-panel-card">
+          <div class="mp-panel-title">本轮候选餐厅</div>
+          <div id="mp-candidate-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
+        <!-- Rules -->
+        <div class="mp-panel-card" style="font-size:12px;color:#6b7280;line-height:1.7;">
+          <div class="mp-panel-title">规则</div>
+          各自独立转盘，票数最多的餐厅胜出。平局进入决胜轮（最多3轮）。30s 内未转视为弃权。
+        </div>
+
       </div>
     </div>
 
-    <div id="mp-participants-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"></div>
-
-    <!-- 多人转盘区 (Story 6.9-V2) -->
-    <div id="mp-wheel-area" class="hidden">
-      <!-- 倒计时 + 投票进度 -->
-      <div id="mp-spin-status-bar" style="display:flex;align-items:center;justify-content:space-between;background:#f5f3ff;border:1px solid #e0d9ff;border-radius:12px;padding:10px 16px;margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#6d28d9">
-          <span style="font-size:11px;color:#9ca3af">剩余</span>
-          <span id="mp-spin-countdown" style="font-size:24px;font-weight:800;color:#7c3aed;min-width:28px">30</span>
-          <span style="font-size:11px;color:#9ca3af">秒</span>
-        </div>
-        <div id="mp-spin-progress-text" style="font-size:13px;color:#6d28d9;font-weight:600">0/? 人已转</div>
-      </div>
-
-      <div class="wheel-area" style="margin-bottom:20px">
-        <div class="wheel-wrap" id="mp-wheel-wrap" style="width:320px;height:320px">
-          <canvas id="mp-wheel-canvas" width="320" height="320"></canvas>
-          <div class="wheel-pointer">▼</div>
-        </div>
-      </div>
-      <div style="text-align:center;margin-top:16px">
-        <button class="btn btn-primary btn-lg" id="btn-mp-wheel-spin">
-          <span id="mp-spin-label">转！</span>
-        </button>
-      </div>
-
-      <!-- 平局提示横幅 -->
-      <div id="mp-tie-banner" class="hidden" style="margin-top:16px;background:#fffbeb;border:1px solid #fbbf24;border-radius:12px;padding:14px 16px;text-align:center">
-        <div style="font-size:15px;font-weight:700;color:#d97706;margin-bottom:4px">⚖️ 平局！进入第 <span id="mp-tie-round">2</span> 轮决胜</div>
-        <div id="mp-tie-desc" style="font-size:13px;color:#92400e"></div>
-      </div>
-
-      <!-- 无结果提示 -->
-      <div id="mp-no-result-banner" class="hidden" style="margin-top:16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;text-align:center;font-size:14px;color:#dc2626">
-        没有人转盘，请重试
-      </div>
-    </div>
-
-    <!-- 多人扫雷区 -->
-    <div id="mp-mine-area" class="hidden">
-      <p style="font-size:14px;color:#888;margin-bottom:16px">任意人点击格子，先到先得！</p>
+    <!-- ── Minesweeper Mode ── -->
+    <div id="mp-mine-area" class="hidden" style="padding:24px">
+      <p style="font-size:14px;color:#9ca3af;margin-bottom:16px">任意人点击格子，先到先得！</p>
       <div class="mine-grid" id="mp-mine-grid"></div>
     </div>
+
+  </div><!-- /.mp-dark -->
+
+  <!-- ── Result Overlay（转盘模式结果）── -->
+  <div class="mp-overlay-bg" id="mp-result-overlay">
+    <div class="mp-result-card">
+      <div style="font-size:48px;margin-bottom:12px">🏆</div>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:8px">今天大家决定吃</div>
+      <div class="mp-result-name" id="mp-result-name">—</div>
+      <div class="mp-result-votes">获得 <span id="mp-result-vote-count" style="font-size:18px;font-weight:700;">0</span> 票胜出</div>
+      <div class="mp-vote-breakdown" id="mp-vote-breakdown"></div>
+      <div id="mp-result-host-actions" class="hidden" style="display:flex;flex-direction:column;gap:8px;">
+        <button class="mp-result-btn" id="btn-mp-confirm">就这家了！</button>
+        <button class="mp-result-btn-sec" id="btn-mp-replay">换一个 <span id="mp-replay-hint" style="font-size:12px;opacity:0.7;"></span></button>
+      </div>
+      <div id="mp-result-guest-waiting" class="hidden" style="color:#6b7280;font-size:14px;">等待发起人确认…</div>
+    </div>
   </div>
+
+  <!-- ── Tie Overlay ── -->
+  <div class="mp-overlay-bg" id="mp-tie-overlay">
+    <div class="mp-tie-card">
+      <div style="font-size:40px;margin-bottom:12px">⚖️</div>
+      <div style="font-size:22px;font-weight:700;color:#f5a623;margin-bottom:8px">平局！进入决胜轮</div>
+      <div class="mp-tie-desc">以下餐厅票数相同，第 <span id="mp-tie-round">2</span> 轮决胜即将开始</div>
+      <div class="mp-tie-candidates" id="mp-tie-candidates"></div>
+      <button class="mp-tie-btn" id="btn-mp-tie-ok">明白，继续转！</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- ══ 多人结果页（Story 6.11）══════════════════════════════════ -->
@@ -1309,13 +1513,13 @@ DB_NAME=takeout_decision</pre>
   </div>
 </div>
 
-<script src="../scripts/api.js?v=8"></script>
-<script src="../scripts/app.js?v=8"></script>
-<script src="../scripts/restaurants.js?v=8"></script>
-<script src="../scripts/wheel.js?v=8"></script>
-<script src="../scripts/minesweeper.js?v=8"></script>
-<script src="../scripts/history-page.js?v=8"></script>
-<script src="../scripts/settings.js?v=8"></script>
-<script src="../scripts/session.js?v=8"></script>
+<script src="../scripts/api.js?v=9"></script>
+<script src="../scripts/app.js?v=9"></script>
+<script src="../scripts/restaurants.js?v=9"></script>
+<script src="../scripts/wheel.js?v=9"></script>
+<script src="../scripts/minesweeper.js?v=9"></script>
+<script src="../scripts/history-page.js?v=9"></script>
+<script src="../scripts/settings.js?v=9"></script>
+<script src="../scripts/session.js?v=9"></script>
 </body>
 </html>

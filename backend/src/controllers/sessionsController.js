@@ -70,7 +70,7 @@ async function createSession(req, res, next) {
       );
 
       await conn.commit();
-      return success(res, { shareToken, sessionId, expiresAt: expiresAt.toISOString() }, 'ok', 201);
+      return success(res, { shareToken, sessionId, hostUserId: userId, expiresAt: expiresAt.toISOString() }, 'ok', 201);
     } catch (e) {
       await conn.rollback();
       throw e;
