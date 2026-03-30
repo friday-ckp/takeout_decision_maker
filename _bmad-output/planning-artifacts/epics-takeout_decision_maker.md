@@ -1355,27 +1355,51 @@ So that 多人可以同步参与转盘/扫雷。
 
 ---
 
-### Story 6.9: 多人转盘 — 同步控制（FR-19）
+### Story 6.9: 多人转盘 — 随机投票机制（FR-19）
+
+> ⚠️ 本 Story 已于 2026-03-30 替换原「同步控制」方案。原方案仅发起人可触发，参与者体验被动；新方案改为每人独立转盘投票，结果取最高票，真正实现多人参与决策。
 
 As a 多人会话参与者,
-I want 看到同步的转盘，由发起人控制旋转,
-So that 所有人同时看到相同的决策过程。
+I want 各自独立转动转盘并投票，票数最多的餐厅胜出,
+So that 每个人都真正参与了决策，而不只是旁观。
 
 **Acceptance Criteria:**
 
+**Given** 会话参与人数不足2人（仅发起人自己）
+**When** 发起人尝试进入多人模式
+**Then** 提示「至少需要2人参与多人模式」，不允许进入多人决策流程
+
 **Given** 所有参与者进入多人决策界面
 **When** 界面加载
-**Then** 发起人的「开始」按钮可点击，其他参与者的「开始」按钮置灰
+**Then** 所有人均显示可点击的「转！」按钮，顶部显示 30s 倒计时，显示「0/N 人已转」进度
 
-**Given** 发起人点击「开始」
-**When** ws 发送 `{event:"wheel_started"}`
-**Then** 服务端基于 candidateSnapshot 数组随机选取结果，向所有客户端广播 `{event:"result_revealed", data:{resultRestaurantId, resultRestaurantName, resultIndex}}`
-**And** `resultIndex` 为候选数组（含2倍份额展开后）的下标，客户端根据此下标计算目标旋转角度（`targetAngle = resultIndex / candidates.length * 360`）
-**And** 所有客户端以相同的 `targetAngle + N*360`（N≥3，保证至少旋转3圈）播放动画，动画时长统一2~4秒，以服务端结果为唯一权威
+**Given** 参与者点击「转！」
+**When** 客户端触发
+**Then** 该参与者的转盘开始旋转动画（2~4秒），转盘停止后客户端随机从 candidateSnapshot 取一个结果，向服务端发送 `{event:"spin_submitted", data:{resultRestaurantId, resultRestaurantName, resultIndex}}`
+**And** 该参与者按钮变为「已投票 ✓」置灰，不可重复提交
+**And** 所有人界面更新进度为「X/N 人已转」
 
-**Given** 客户端收到 result_revealed 时本地候选数组与服务端 candidateSnapshot 不一致
-**When** resultIndex 超出本地数组范围
-**Then** 客户端跳过动画，直接显示 resultRestaurantName，并记录 console.warn
+**Given** 所有参与者均已提交 OR 30s 倒计时结束
+**When** 服务端触发统计
+**Then** 若已有至少1个有效结果，服务端统计各餐厅得票数，取最高票餐厅
+**And** 向所有客户端广播 `{event:"round_result", data:{winner:{restaurantId, restaurantName, votes}, allVotes:[{restaurantId, restaurantName, votes}], isTie:false}}`
+**And** 若倒计时结束时仍有人未转，未转者视为弃权，不影响已有结果
+
+**Given** 服务端统计后出现平局（多家餐厅票数相同）
+**When** 广播 round_result
+**Then** `isTie: true`，`candidates` 仅包含平局的餐厅列表
+**And** 向所有客户端广播 `{event:"tie_break_start", data:{candidates:[...], round:2}}`
+**And** 所有人进入第二轮投票，仅平局餐厅参与候选，重新开始 30s 倒计时
+**And** 若第二轮仍平局，继续重复直至分出胜负（最多3轮后随机选一个）
+
+**Given** 服务端统计后所有人均弃权（无人在 30s 内转盘）
+**When** 超时触发
+**Then** 向所有客户端广播 `{event:"no_result", data:{message:"没有有效结果"}}`
+**And** 前端提示「没有人转盘，请重试」，显示「重新开始」按钮
+
+**Given** 客户端收到 round_result（isTie: false）
+**When** 渲染结果页
+**Then** 大字显示胜出餐厅名称，展示「获得 N 票」，下方显示每位参与者的投票明细（谁转出了什么）
 
 ---
 

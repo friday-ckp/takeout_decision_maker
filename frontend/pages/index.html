@@ -1103,6 +1103,9 @@
       <button class="btn btn-primary btn-lg btn-full hidden" id="btn-lobby-start" style="margin-top:8px">
         开始决策（<span id="lobby-start-count">1</span> 人）
       </button>
+      <div id="lobby-min-players-hint" style="font-size:12px;color:#f59e0b;text-align:center;margin-top:6px">
+        ⚠️ 至少需要 2 人参与多人模式
+      </div>
 
       <!-- 等待发起人提示（受邀者可见） -->
       <div class="hidden" id="lobby-waiting-hint" style="text-align:center;padding:24px;color:#888">
@@ -1125,8 +1128,18 @@
 
     <div id="mp-participants-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"></div>
 
-    <!-- 多人转盘区 -->
+    <!-- 多人转盘区 (Story 6.9-V2) -->
     <div id="mp-wheel-area" class="hidden">
+      <!-- 倒计时 + 投票进度 -->
+      <div id="mp-spin-status-bar" style="display:flex;align-items:center;justify-content:space-between;background:#f5f3ff;border:1px solid #e0d9ff;border-radius:12px;padding:10px 16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#6d28d9">
+          <span style="font-size:11px;color:#9ca3af">剩余</span>
+          <span id="mp-spin-countdown" style="font-size:24px;font-weight:800;color:#7c3aed;min-width:28px">30</span>
+          <span style="font-size:11px;color:#9ca3af">秒</span>
+        </div>
+        <div id="mp-spin-progress-text" style="font-size:13px;color:#6d28d9;font-weight:600">0/? 人已转</div>
+      </div>
+
       <div class="wheel-area" style="margin-bottom:20px">
         <div class="wheel-wrap" id="mp-wheel-wrap" style="width:320px;height:320px">
           <canvas id="mp-wheel-canvas" width="320" height="320"></canvas>
@@ -1134,9 +1147,20 @@
         </div>
       </div>
       <div style="text-align:center;margin-top:16px">
-        <button class="btn btn-primary btn-lg" id="btn-mp-wheel-spin" disabled>
-          <span id="mp-spin-label">等待发起人旋转…</span>
+        <button class="btn btn-primary btn-lg" id="btn-mp-wheel-spin">
+          <span id="mp-spin-label">转！</span>
         </button>
+      </div>
+
+      <!-- 平局提示横幅 -->
+      <div id="mp-tie-banner" class="hidden" style="margin-top:16px;background:#fffbeb;border:1px solid #fbbf24;border-radius:12px;padding:14px 16px;text-align:center">
+        <div style="font-size:15px;font-weight:700;color:#d97706;margin-bottom:4px">⚖️ 平局！进入第 <span id="mp-tie-round">2</span> 轮决胜</div>
+        <div id="mp-tie-desc" style="font-size:13px;color:#92400e"></div>
+      </div>
+
+      <!-- 无结果提示 -->
+      <div id="mp-no-result-banner" class="hidden" style="margin-top:16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;text-align:center;font-size:14px;color:#dc2626">
+        没有人转盘，请重试
       </div>
     </div>
 
@@ -1154,7 +1178,13 @@
     <div style="font-size:60px;margin-bottom:20px">🎉</div>
     <p style="font-size:14px;color:#888;margin-bottom:8px">今天的外卖就选它了！</p>
     <div style="font-size:44px;font-weight:900;color:#111;margin-bottom:12px;line-height:1.2" id="sr-restaurant-name">—</div>
-    <div style="font-size:14px;color:#888;margin-bottom:40px" id="sr-restaurant-category"></div>
+    <div style="font-size:14px;color:#888;margin-bottom:16px" id="sr-restaurant-category"></div>
+
+    <!-- 多人投票汇总（多人转盘模式显示）-->
+    <div id="sr-vote-summary" class="hidden" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin:0 auto 24px;max-width:320px;text-align:left">
+      <div style="font-size:13px;color:#059669;font-weight:700;margin-bottom:8px">🏆 获得 <span id="sr-vote-count">0</span> 票胜出</div>
+      <div id="sr-vote-breakdown"></div>
+    </div>
 
     <!-- 发起人操作 -->
     <div id="sr-host-actions" class="hidden" style="display:flex;flex-direction:column;gap:12px;max-width:320px;margin:0 auto">

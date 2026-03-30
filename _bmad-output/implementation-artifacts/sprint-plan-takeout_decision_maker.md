@@ -238,7 +238,7 @@ totalStories: 58
 | 6.6 | 等待室实时参与者列表 | FR-18, UX-DR7 | 2 | done |
 | 6.7 | WS 等待室事件（participant_joined / session_state） | FR-18 | 2 | done |
 | 6.8 | 开始决策广播（deciding_started） | FR-19 | 2 | done |
-| 6.9 | 多人转盘 — 同步控制 | FR-19 | 3 | done |
+| 6.9 | 多人转盘 — 随机投票机制（V2） | FR-19 | 3 | done |
 | 6.10 | 多人扫雷 — 先到先得 | FR-19 | 3 | done |
 | 6.11 | 多人结果页与会话确认 | FR-19, FR-15 | 2 | done |
 | 6.12 | WebSocket 断线重连 | NFR-05 | 2 | done |

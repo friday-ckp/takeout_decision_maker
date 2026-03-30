@@ -5,7 +5,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../models/db');
 const { success, fail } = require('../utils/response');
-const { broadcast } = require('../websocket/server');
+const { broadcast, startSpinRound } = require('../websocket/server');
 
 // ── 创建会话 (Story 6.2) ──────────────────────────────────────────
 async function createSession(req, res, next) {
@@ -222,6 +222,13 @@ async function startSession(req, res, next) {
       data: { status: 'deciding', mode: session.mode, candidateSnapshot },
     });
 
+    // wheel 模式：启动投票轮次（30s 超时收集所有人结果）
+    if (session.mode === 'wheel') {
+      startSpinRound(token, session.id).catch(e =>
+        console.error('[sessions] startSpinRound failed', e.message)
+      );
+    }
+
     return success(res, { status: 'deciding' });
   } catch (e) {
     next(e);
@@ -295,6 +302,10 @@ async function replaySession(req, res, next) {
       [token]
     );
     if (!session) return fail(res, 40401, '会话不存在', 404);
+    // W4: 只有 deciding / deciding_locked 状态才允许重玩
+    if (!['deciding', 'deciding_locked'].includes(session.status)) {
+      return fail(res, 40003, '会话未在决策中，不允许重玩');
+    }
 
     const today = new Date().toISOString().slice(0, 10);
     const [[dc]] = await pool.query(
@@ -324,6 +335,13 @@ async function replaySession(req, res, next) {
 
     const remainingReplays = maxReplay - (replayCount + 1);
     broadcast(token, { event: 'replay_initiated', data: { remainingReplays } });
+
+    // wheel 模式重玩：重新启动投票轮次
+    if (session.mode === 'wheel') {
+      startSpinRound(token, session.id).catch(e =>
+        console.error('[sessions] startSpinRound(replay) failed', e.message)
+      );
+    }
 
     return success(res, { remainingReplays });
   } catch (e) {

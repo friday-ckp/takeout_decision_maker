@@ -3,6 +3,16 @@
  * Stories: 6.3 / 6.5 / 6.6 / 6.7 / 6.8 / 6.9 / 6.10 / 6.11 / 6.12
  */
 
+// ── 安全工具：HTML 实体转义（防 XSS）────────────────────────────
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── 会话状态 ──────────────────────────────────────────────────────
 let sessionToken = null;
 let sessionMode = null;        // 'wheel' | 'minesweeper'
@@ -12,6 +22,11 @@ let isHost = false;
 let candidateSnapshot = [];    // 展开后的候选数组
 let currentResult = null;      // { resultRestaurantId, resultRestaurantName }
 let remainingReplays = 3;
+
+// 多人转盘投票状态
+let mpSpinCountdownTimer = null;
+let mpSpinTotalParticipants = 0;
+let mpSpinHasVoted = false;
 
 // WebSocket 实例（Story 6.12 断线重连）
 let ws = null;
@@ -49,8 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     navigate('decide');
   });
 
-  // 多人转盘旋转
-  document.getElementById('btn-mp-wheel-spin')?.addEventListener('click', handleMpWheelSpin);
+  // 多人转盘旋转（所有人均可触发，Story 6.9-V2）
+  document.getElementById('btn-mp-wheel-spin')?.addEventListener('click', handleMpWheelSpinVote);
 
   // 结果页操作
   document.getElementById('btn-sr-confirm')?.addEventListener('click', handleConfirm);
@@ -302,6 +317,18 @@ function handleWsMessage(msg) {
     case 'result_revealed':
       onResultRevealed(data);
       break;
+    case 'spin_progress':
+      onSpinProgress(data);
+      break;
+    case 'round_result':
+      onRoundResult(data);
+      break;
+    case 'tie_break_start':
+      onTieBreakStart(data);
+      break;
+    case 'no_result':
+      onNoResult(data);
+      break;
     case 'session_done':
       onSessionDone(data);
       break;
@@ -345,19 +372,15 @@ function onDecidingStarted(data) {
   navigate('multiplayer');
 }
 
-// ── result_revealed：结果揭晓 ──────────────────────────────────────
+// ── result_revealed：结果揭晓（扫雷模式使用；转盘模式走 round_result）──
 function onResultRevealed(data) {
   currentResult = {
     resultRestaurantId:   data.resultRestaurantId,
     resultRestaurantName: data.resultRestaurantName,
   };
 
-  if (sessionMode === 'wheel') {
-    // 转盘动画（Story 6.9）
-    const { resultIndex, resultRestaurantName } = data;
-    playWheelAnimation(resultIndex, resultRestaurantName);
-  } else {
-    // 扫雷：揭晓格子（Story 6.10）
+  // 扫雷：揭晓格子（Story 6.10）
+  if (sessionMode === 'minesweeper') {
     revealMpMineCell(data);
   }
 }
@@ -372,6 +395,7 @@ function onSessionDone(data) {
 // ── replay_initiated：重玩 ────────────────────────────────────────
 function onReplayInitiated(data) {
   remainingReplays = data.remainingReplays;
+  _stopMpCountdown();
   navigate('multiplayer');
   // 重置多人决策界面
   if (sessionMode === 'wheel') {
@@ -402,9 +426,10 @@ function appendParticipant(p, container) {
   const item = document.createElement('div');
   item.className = 'participant-item';
   item.dataset.nickname = p.nickname;
+  // C1: escapeHtml 防止 nickname 含 HTML 特殊字符导致 XSS
   item.innerHTML = `
-    <div class="p-avatar">${p.nickname.charAt(0).toUpperCase()}</div>
-    <div class="p-name">${p.nickname}</div>
+    <div class="p-avatar">${escapeHtml(p.nickname.charAt(0).toUpperCase())}</div>
+    <div class="p-name">${escapeHtml(p.nickname)}</div>
     ${p.role === 'host' ? '<span class="p-badge">发起人</span>' : ''}
   `;
   list.appendChild(item);
@@ -417,6 +442,11 @@ function updateStartButton(count) {
   if (countEl) countEl.textContent = count;
   // 至少2人才能开始（含发起人）
   btn.disabled = count < 2;
+
+  const hintEl = document.getElementById('lobby-min-players-hint');
+  if (hintEl) {
+    hintEl.classList.toggle('hidden', count >= 2);
+  }
 }
 
 // ── onEnterMultiplayer ─────────────────────────────────────────────
@@ -457,82 +487,203 @@ function renderMpParticipantsBar() {
   });
 }
 
-// ── 多人转盘（Story 6.9）──────────────────────────────────────────
+// ── 多人转盘（Story 6.9-V2：随机投票机制）───────────────────────
 function initMpWheel() {
   const canvas = document.getElementById('mp-wheel-canvas');
   if (!canvas || candidateSnapshot.length === 0) return;
   drawMpWheel(canvas, candidateSnapshot);
 
+  mpSpinHasVoted = false;
   const btn = document.getElementById('btn-mp-wheel-spin');
   const label = document.getElementById('mp-spin-label');
-  if (isHost) {
-    btn.disabled = false;
-    if (label) label.textContent = '开始旋转！';
-  } else {
-    btn.disabled = true;
-    if (label) label.textContent = '等待发起人旋转…';
-  }
+  btn.disabled = false;
+  if (label) label.textContent = '转！';
+
+  // 隐藏上次的提示横幅
+  document.getElementById('mp-tie-banner')?.classList.add('hidden');
+  document.getElementById('mp-no-result-banner')?.classList.add('hidden');
+
+  // 获取参与人数：从 lobby 参与者列表计算
+  const items = document.querySelectorAll('#lobby-participants-list .participant-item');
+  mpSpinTotalParticipants = items.length || 1;
+
+  // 更新进度文字
+  const progressEl = document.getElementById('mp-spin-progress-text');
+  if (progressEl) progressEl.textContent = `0/${mpSpinTotalParticipants} 人已转`;
+
+  // 启动本地 30s 倒计时（与服务端超时同步）
+  _startMpCountdown(30);
 }
 
-function handleMpWheelSpin() {
-  if (!isHost || !ws || ws.readyState !== WebSocket.OPEN) return;
+function _startMpCountdown(seconds) {
+  clearInterval(mpSpinCountdownTimer);
+  let remaining = seconds;
+  const countEl = document.getElementById('mp-spin-countdown');
+  if (countEl) countEl.textContent = remaining;
+
+  mpSpinCountdownTimer = setInterval(() => {
+    remaining--;
+    if (countEl) {
+      countEl.textContent = remaining;
+      countEl.style.color = remaining <= 5 ? '#dc2626' : remaining <= 10 ? '#d97706' : '#7c3aed';
+    }
+    if (remaining <= 0) {
+      clearInterval(mpSpinCountdownTimer);
+    }
+  }, 1000);
+}
+
+function _stopMpCountdown() {
+  clearInterval(mpSpinCountdownTimer);
+  const countEl = document.getElementById('mp-spin-countdown');
+  if (countEl) { countEl.textContent = '0'; countEl.style.color = '#9ca3af'; }
+}
+
+/**
+ * 所有人均可点击：本地随机选一个结果，播放动画，完成后提交给服务端
+ */
+function handleMpWheelSpinVote() {
+  if (mpSpinHasVoted) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (candidateSnapshot.length === 0) return;
+
   const btn = document.getElementById('btn-mp-wheel-spin');
+  const label = document.getElementById('mp-spin-label');
   btn.disabled = true;
-  ws.send(JSON.stringify({ event: 'wheel_started' }));
+  mpSpinHasVoted = true;
+  if (label) label.textContent = '旋转中…';
+
+  // 本地随机决定结果
+  const localIndex = Math.floor(Math.random() * candidateSnapshot.length);
+  const localResult = candidateSnapshot[localIndex];
+
+  // 播放旋转动画，结束后提交
+  playLocalWheelAnimation(localIndex, () => {
+    if (label) label.textContent = '✓ 已投票';
+    ws.send(JSON.stringify({
+      event: 'spin_submitted',
+      data: {
+        resultRestaurantId: localResult.id,
+        resultRestaurantName: localResult.name,
+        resultIndex: localIndex,
+      },
+    }));
+  });
 }
 
-function playWheelAnimation(resultIndex, resultName) {
+/**
+ * 本地旋转动画（W3修复：直接绘制旋转后的转盘，不依赖 drawMpWheel 的 clearRect）
+ */
+function playLocalWheelAnimation(resultIndex, onComplete) {
   const canvas = document.getElementById('mp-wheel-canvas');
-  if (!canvas || candidateSnapshot.length === 0) {
-    navigateToSessionResult(resultName);
-    return;
-  }
+  if (!canvas || candidateSnapshot.length === 0) { onComplete?.(); return; }
 
   const total = candidateSnapshot.length;
-  if (resultIndex < 0 || resultIndex >= total) {
-    console.warn('[WS] resultIndex 超出范围，直接显示结果');
-    navigateToSessionResult(resultName);
-    return;
-  }
-
   const sliceDeg = 360 / total;
   const targetDeg = resultIndex * sliceDeg + sliceDeg / 2;
-  const spinDeg = 1080 + (360 - targetDeg); // 旋转3圈 + 对准结果
+  const spinDeg = 1080 + (360 - targetDeg);
 
   const startTime = performance.now();
-  const duration = 3000;
-
-  function ease(t) {
-    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-  }
-
+  const duration = 2500;
   const ctx = canvas.getContext('2d');
-  let currentAngle = 0;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const r = cx - 4;
+  const colors = ['#fde8c0', '#dde6ff', '#d1fae5', '#fce7f3', '#fef3c7', '#e0f2fe'];
+  const arc = (2 * Math.PI) / total;
+
+  function ease(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+
+  function drawRotated(angleDeg) {
+    const angleRad = (angleDeg * Math.PI) / 180;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    candidateSnapshot.forEach((item, i) => {
+      const start = angleRad + i * arc - Math.PI / 2;
+      const end = start + arc;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, start, end);
+      ctx.closePath();
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate((start + end) / 2);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#333';
+      ctx.font = `bold ${Math.max(10, 14 - total / 3)}px sans-serif`;
+      ctx.fillText(item.name?.slice(0, 6) || '', r - 8, 5);
+      ctx.restore();
+    });
+  }
 
   function animate(now) {
-    const elapsed = now - startTime;
-    const t = Math.min(elapsed / duration, 1);
-    currentAngle = ease(t) * spinDeg;
-
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate((currentAngle * Math.PI) / 180);
-    ctx.translate(-canvas.width / 2, -canvas.height / 2);
-    drawMpWheel(canvas, candidateSnapshot);
-    ctx.restore();
-
-    if (t < 1) {
-      requestAnimationFrame(animate);
-    } else {
-      setTimeout(() => navigateToSessionResult(resultName), 800);
-    }
+    const t = Math.min((now - startTime) / duration, 1);
+    drawRotated(ease(t) * spinDeg);
+    if (t < 1) { requestAnimationFrame(animate); } else { onComplete?.(); }
   }
-
   requestAnimationFrame(animate);
 }
 
+// ── spin_progress：更新投票进度 ───────────────────────────────────
+function onSpinProgress(data) {
+  const { spunCount, totalCount } = data;
+  const progressEl = document.getElementById('mp-spin-progress-text');
+  if (progressEl) progressEl.textContent = `${spunCount}/${totalCount} 人已转`;
+  mpSpinTotalParticipants = totalCount;
+}
+
+// ── round_result：投票结果揭晓 ────────────────────────────────────
+function onRoundResult(data) {
+  _stopMpCountdown();
+  const { winner, allVotes } = data;
+  currentResult = {
+    resultRestaurantId: winner.restaurantId,
+    resultRestaurantName: winner.restaurantName,
+  };
+  navigateToSessionResult(winner.restaurantName, winner.votes, allVotes);
+}
+
+// ── tie_break_start：平局，进入决胜轮 ────────────────────────────
+function onTieBreakStart(data) {
+  const { round, candidates, tiedRestaurants } = data;
+
+  // 更新候选池为平局餐厅
+  candidateSnapshot = candidates || candidateSnapshot;
+
+  // 显示平局横幅
+  const banner = document.getElementById('mp-tie-banner');
+  const roundEl = document.getElementById('mp-tie-round');
+  const descEl = document.getElementById('mp-tie-desc');
+  if (banner) banner.classList.remove('hidden');
+  if (roundEl) roundEl.textContent = round;
+  if (descEl) {
+    const names = (tiedRestaurants || []).map(r => r.restaurantName).join(' vs ');
+    descEl.textContent = `${names} 票数相同，继续转盘！`;
+  }
+
+  // 重置转盘界面进入新一轮
+  initMpWheel();
+}
+
+// ── no_result：所有人超时弃权 ────────────────────────────────────
+function onNoResult(data) {
+  _stopMpCountdown();
+  const banner = document.getElementById('mp-no-result-banner');
+  if (banner) banner.classList.remove('hidden');
+  // 恢复按钮可点击（让用户重试）
+  mpSpinHasVoted = false;
+  const btn = document.getElementById('btn-mp-wheel-spin');
+  const label = document.getElementById('mp-spin-label');
+  if (btn) btn.disabled = false;
+  if (label) label.textContent = '重新转！';
+}
+
 function resetMpWheel() {
+  _stopMpCountdown();
   initMpWheel();
 }
 
@@ -586,13 +737,36 @@ function resetMpMine() {
 }
 
 // ── 跳转到结果页 ──────────────────────────────────────────────────
-function navigateToSessionResult(restaurantName) {
+function navigateToSessionResult(restaurantName, votes, allVotes) {
   const cat = currentResult
     ? (candidateSnapshot.find(r => r.id === currentResult.resultRestaurantId)?.category || '')
     : '';
 
   document.getElementById('sr-restaurant-name').textContent = restaurantName || '';
   document.getElementById('sr-restaurant-category').textContent = cat ? `品类：${cat}` : '';
+
+  // 多人转盘：显示票数 + 投票明细
+  const votesEl = document.getElementById('sr-vote-summary');
+  if (votesEl) {
+    if (votes != null) {
+      votesEl.classList.remove('hidden');
+      const votesCountEl = document.getElementById('sr-vote-count');
+      if (votesCountEl) votesCountEl.textContent = votes;
+
+      const breakdownEl = document.getElementById('sr-vote-breakdown');
+      if (breakdownEl && Array.isArray(allVotes)) {
+        // C1: 使用 escapeHtml 防 XSS，nickname 和 restaurantName 均来自外部输入
+        breakdownEl.innerHTML = allVotes.map(v =>
+          `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f3f4f6;font-size:13px">
+            <span style="color:#6b7280">${escapeHtml(v.nickname)}</span>
+            <span style="font-weight:500;color:${v.isWinner ? '#059669' : '#111'}">${escapeHtml(v.restaurantName)}${v.isWinner ? ' ✓' : ''}</span>
+          </div>`
+        ).join('');
+      }
+    } else {
+      votesEl.classList.add('hidden');
+    }
+  }
 
   // 更新重玩按钮
   const hintEl = document.getElementById('sr-replay-hint');
