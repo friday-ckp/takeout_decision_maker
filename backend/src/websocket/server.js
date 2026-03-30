@@ -10,6 +10,9 @@ const { pool } = require('../models/db');
 // 房间 Map: shareToken → [{ ws, userId, nickname, role }]
 const rooms = new Map();
 
+// 转盘投票轮次 Map: shareToken → { results, totalExpected, candidates, round, timeout }
+const spinRounds = new Map();
+
 /**
  * 向某个会话的所有连接广播消息
  */
@@ -159,9 +162,9 @@ function attachWebSocketServer(server) {
       const { event, data } = msg;
 
       try {
-        // 转盘：发起人触发旋转
-        if (event === 'wheel_started') {
-          await handleWheelStarted(token, session.id, ws);
+        // 转盘：任意参与者提交本人旋转结果 (Story 6.9-V2)
+        if (event === 'spin_submitted') {
+          await handleSpinSubmitted(token, session.id, connInfo, data);
         }
 
         // 扫雷：参与者点击格子
@@ -178,7 +181,13 @@ function attachWebSocketServer(server) {
       if (conns) {
         const idx = conns.indexOf(connInfo);
         if (idx !== -1) conns.splice(idx, 1);
-        if (conns.length === 0) rooms.delete(token);
+        if (conns.length === 0) {
+          rooms.delete(token);
+          // C3: 房间清空时同步清理 spinRound，防止内存泄漏
+          const round = spinRounds.get(token);
+          if (round?.timeout) clearTimeout(round.timeout);
+          spinRounds.delete(token);
+        }
       }
     });
 
@@ -192,32 +201,177 @@ function attachWebSocketServer(server) {
 }
 
 /**
- * 处理转盘旋转事件 (Story 6.9)
+ * 启动转盘投票轮次 (Story 6.9-V2)
+ * 由 sessionsController.startSession / replaySession 在 wheel 模式下调用
  */
-async function handleWheelStarted(token, sessionId, senderWs) {
-  const [rows] = await pool.query(
-    'SELECT status, candidate_snapshot FROM decision_sessions WHERE id = ?',
-    [sessionId]
-  );
-  const session = rows[0];
-  if (!session || session.status !== 'deciding') return;
-
+async function startSpinRound(token, sessionId) {
+  let totalExpected = 1;
   let candidates = [];
   try {
-    candidates = JSON.parse(session.candidate_snapshot || '[]');
-  } catch (_) { return; }
+    const [pRows] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM session_participants WHERE session_id = ?',
+      [sessionId]
+    );
+    totalExpected = pRows[0]?.cnt || 1;
 
-  if (candidates.length === 0) return;
+    const [sRows] = await pool.query(
+      'SELECT candidate_snapshot FROM decision_sessions WHERE id = ?',
+      [sessionId]
+    );
+    candidates = JSON.parse(sRows[0]?.candidate_snapshot || '[]');
+  } catch (e) {
+    console.error('[WS] startSpinRound query error', e.message);
+  }
 
-  const resultIndex = Math.floor(Math.random() * candidates.length);
-  const result = candidates[resultIndex];
+  _initSpinRound(token, sessionId, totalExpected, candidates, 1);
+}
+
+/**
+ * 初始化一轮投票（含重新开始决胜轮）
+ */
+function _initSpinRound(token, sessionId, totalExpected, candidates, roundNum) {
+  const existing = spinRounds.get(token);
+  if (existing?.timeout) clearTimeout(existing.timeout);
+
+  const round = {
+    results: [],
+    totalExpected,
+    candidates,
+    round: roundNum,
+    timeout: null,
+    finalized: false,  // C2: 防止并发双调用
+  };
+  round.timeout = setTimeout(() => _finalizeRound(token, sessionId, round), 30000);
+  spinRounds.set(token, round);
+  console.log(`[WS] Spin round ${roundNum} for ${token}, expecting ${totalExpected} votes`);
+}
+
+/**
+ * 处理参与者提交旋转结果 (Story 6.9-V2)
+ * event: spin_submitted { resultRestaurantId, resultRestaurantName }
+ */
+async function handleSpinSubmitted(token, sessionId, connInfo, data) {
+  const round = spinRounds.get(token);
+  if (!round) return;
+
+  const [rows] = await pool.query(
+    'SELECT status FROM decision_sessions WHERE id = ?',
+    [sessionId]
+  );
+  if (!rows[0] || rows[0].status !== 'deciding') return;
+
+  // W2: 防止同一用户重复提交（userId 或 nickname 为去重 key）
+  const dedupeKey = connInfo.userId || connInfo.nickname;
+  const dedupeField = connInfo.userId ? 'userId' : 'nickname';
+  if (dedupeKey && round.results.some(r => r[dedupeField] === dedupeKey)) return;
+
+  const { resultRestaurantId, resultRestaurantName } = data || {};
+  if (!resultRestaurantName) return;
+
+  round.results.push({
+    userId: connInfo.userId,
+    nickname: connInfo.nickname,
+    restaurantId: resultRestaurantId,
+    restaurantName: resultRestaurantName,
+  });
 
   broadcast(token, {
-    event: 'result_revealed',
+    event: 'spin_progress',
+    data: { spunCount: round.results.length, totalCount: round.totalExpected },
+  });
+
+  if (round.results.length >= round.totalExpected) {
+    clearTimeout(round.timeout);
+    _finalizeRound(token, sessionId, round);
+  }
+}
+
+/**
+ * 统计票数，返回按票数降序排列的数组
+ */
+function _tallyVotes(results) {
+  const map = new Map();
+  results.forEach(r => {
+    // W5: restaurantId=0 是 falsy，用 != null 判断
+    const key = (r.restaurantId != null) ? String(r.restaurantId) : r.restaurantName;
+    if (!map.has(key)) {
+      map.set(key, { restaurantId: r.restaurantId, restaurantName: r.restaurantName, votes: 0 });
+    }
+    map.get(key).votes++;
+  });
+  return [...map.values()].sort((a, b) => b.votes - a.votes);
+}
+
+/**
+ * 结算本轮投票：平局则进入决胜轮，否则广播最终结果
+ */
+function _finalizeRound(token, sessionId, round) {
+  // C2: 防并发双调用
+  if (round.finalized) return;
+  round.finalized = true;
+  spinRounds.delete(token);
+
+  if (round.results.length === 0) {
+    broadcast(token, { event: 'no_result', data: { message: '没有人转盘，请重试' } });
+    // C5: 重新开始本轮，让用户可以重试
+    _initSpinRound(token, sessionId, round.totalExpected, round.candidates, round.round);
+    return;
+  }
+
+  const tally = _tallyVotes(round.results);
+  const maxVotes = tally[0].votes;
+  const tied = tally.filter(t => t.votes === maxVotes);
+
+  // 平局且未超过3轮 → 进入决胜轮
+  if (tied.length > 1 && round.round < 3) {
+    const tieIds = new Set(tied.map(t => t.restaurantId).filter(Boolean));
+    const tieNames = new Set(tied.map(t => t.restaurantName));
+    const seen = new Set();
+    const tieCandidates = round.candidates.filter(c => {
+      const k = c.id || c.name;
+      if (seen.has(k)) return false;
+      if ((c.id && tieIds.has(c.id)) || tieNames.has(c.name)) {
+        seen.add(k);
+        return true;
+      }
+      return false;
+    });
+
+    broadcast(token, {
+      event: 'tie_break_start',
+      data: {
+        round: round.round + 1,
+        candidates: tieCandidates,
+        tiedRestaurants: tied.map(t => ({
+          restaurantId: t.restaurantId,
+          restaurantName: t.restaurantName,
+          votes: t.votes,
+        })),
+      },
+    });
+
+    _initSpinRound(token, sessionId, round.totalExpected, tieCandidates, round.round + 1);
+    return;
+  }
+
+  // 有明确赢家（或第3轮仍平局随机选一个）
+  const winner = tied[Math.floor(Math.random() * tied.length)];
+  const allVotes = round.results.map(r => ({
+    nickname: r.nickname,
+    restaurantId: r.restaurantId,
+    restaurantName: r.restaurantName,
+    isWinner: (r.restaurantId === winner.restaurantId) || (r.restaurantName === winner.restaurantName),
+  }));
+
+  broadcast(token, {
+    event: 'round_result',
     data: {
-      resultRestaurantId: result.id,
-      resultRestaurantName: result.name,
-      resultIndex,
+      winner: {
+        restaurantId: winner.restaurantId,
+        restaurantName: winner.restaurantName,
+        votes: winner.votes,
+      },
+      allVotes,
     },
   });
 }
@@ -281,4 +435,4 @@ async function handleCellClicked(token, sessionId, senderWs, connInfo, data) {
   }
 }
 
-module.exports = { attachWebSocketServer, broadcast, broadcastExcept, rooms };
+module.exports = { attachWebSocketServer, broadcast, broadcastExcept, rooms, startSpinRound };
