@@ -134,7 +134,7 @@ async function createAndGoLobby(mode) {
     const data = await api.post('/api/sessions', { mode });
     sessionToken    = data.shareToken;
     sessionMode     = mode;
-    sessionUserId   = 1;
+    sessionUserId   = data.hostUserId;
     sessionNickname = '我（发起人）';
     isHost          = true;
 

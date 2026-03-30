@@ -384,7 +384,19 @@ textarea { resize: vertical; }
     padding: var(--spacing-lg) var(--content-padding);
   }
   .wheel-wrap { width: min(320px, 90vw) !important; height: min(320px, 90vw) !important; }
-  #mp-wheel-canvas { width: min(320px, 90vw) !important; height: min(320px, 90vw) !important; }
+  #mp-wheel-canvas { width: min(300px, 88vw) !important; height: min(300px, 88vw) !important; }
+
+  /* 多人决策页移动端改单列，防止双列布局在窄屏溢出 */
+  .mp-main-layout {
+    grid-template-columns: 1fr !important;
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+  .mp-wheel-container {
+    width: min(300px, 88vw) !important;
+    height: min(300px, 88vw) !important;
+  }
+  .mp-panel { display: none !important; }
 
   /* 顶部导航 */
   .topnav__links { gap: 4px; }
