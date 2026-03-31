@@ -98,7 +98,7 @@ async function login(req, res) {
       { expiresIn: '7d' }
     );
 
-    return success(res, { token, userId: user.id, name: user.name });
+    return success(res, { token, userId: user.id, name: user.name, email: user.email });
   } catch (err) {
     console.error('[Auth] login error:', err.message);
     return fail(res, 50001, '服务器内部错误', 500);

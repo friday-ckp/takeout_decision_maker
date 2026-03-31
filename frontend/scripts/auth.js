@@ -64,7 +64,7 @@ async function authLogin(email, password) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || '登录失败');
-  saveAuth(data.data.token, { userId: data.data.userId, name: data.data.name });
+  saveAuth(data.data.token, { userId: data.data.userId, name: data.data.name, email: data.data.email });
   updateNavUserState();
   navigate('home');
 }
