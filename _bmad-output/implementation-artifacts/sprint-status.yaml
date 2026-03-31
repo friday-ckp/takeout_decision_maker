@@ -124,7 +124,7 @@ development_status:
   epic-6: in-progress
   6-1-websocket-server-skeleton: done
   6-2-create-session-api: done           # Sprint 4 重写（自选餐厅 + 截止时间）
-  6-3-share-link-ui: backlog             # Sprint 4 重写（餐厅勾选 + 截止时间设置）
+  6-3-share-link-ui: done                # Sprint 4 重写（餐厅勾选 + 截止时间设置）
   6-4-join-session-api: done
   6-5-join-nickname-page: done
   6-6-waiting-room-list: done
