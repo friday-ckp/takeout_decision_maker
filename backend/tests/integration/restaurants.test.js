@@ -14,9 +14,11 @@ jest.mock('../../src/models/db', () => ({
   testConnection: jest.fn().mockResolvedValue(),
 }));
 
+jest.mock('jsonwebtoken', () => ({ verify: jest.fn().mockReturnValue({ userId: 1 }) }));
+
 const { pool } = require('../../src/models/db');
 
-const USER_HEADER = { 'X-User-Id': '1' };
+const USER_HEADER = { 'Authorization': 'Bearer test.token' };
 
 afterEach(() => jest.clearAllMocks());
 
@@ -36,9 +38,9 @@ describe('GET /api/restaurants', () => {
     expect(res.body.data.list[1].isFavorite).toBe(true);
   });
 
-  test('缺少 X-User-Id 返回 400', async () => {
+  test('缺少 Authorization 返回 401', async () => {
     const res = await request(app).get('/api/restaurants');
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
   });
 
   test('keyword 过滤正确传参', async () => {

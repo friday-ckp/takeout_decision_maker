@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { requireUserId } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const {
   listRestaurants, createRestaurant,
   updateRestaurant, deleteRestaurant,
@@ -10,7 +10,7 @@ const {
   toggleBlock, listBlacklist,
 } = require('../controllers/restaurantsController');
 
-router.use(requireUserId);
+router.use(requireAuth);
 
 // 列表 & 新增
 router.get('/',        listRestaurants);

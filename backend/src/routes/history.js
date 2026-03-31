@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { requireUserId } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { createHistory, listHistory } = require('../controllers/historyController');
 
-router.use(requireUserId);
+router.use(requireAuth);
 router.get('/',  listHistory);
 router.post('/', createHistory);
 

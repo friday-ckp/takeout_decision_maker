@@ -158,7 +158,7 @@ development_status:
   8-1-auth-db-migration: done
   8-2-register-api: done
   8-3-login-api: done
-  8-4-jwt-middleware: backlog
+  8-4-jwt-middleware: done
   8-5-login-register-page: backlog
   8-6-token-management: backlog
   8-7-user-profile-page: backlog
