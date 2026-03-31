@@ -13,6 +13,9 @@ const rooms = new Map();
 // 转盘投票轮次 Map: shareToken → { results, totalExpected, candidates, round, timeout }
 const spinRounds = new Map();
 
+// 投票轮次 Map (Story 6.9-new): shareToken → { votes: Map<userKey, voteData>, totalVoters, candidateSnapshot, deadlineTimer, finalized }
+const voteRounds = new Map();
+
 /**
  * 向某个会话的所有连接广播消息
  */
@@ -136,13 +139,20 @@ function attachWebSocketServer(server) {
           : [];
       } catch (_) {}
 
+      // 当前票数快照（如果投票已开始）
+      const voteRound = voteRounds.get(token);
+      const currentVotes = voteRound ? _buildVotesSummary(voteRound, candidateSnapshot) : [];
+
       ws.send(JSON.stringify({
         event: 'session_state',
         data: {
           status: session.status,
-          mode: session.mode,
+          deadlineAt: session.deadline_at || null,
           participants,
           candidateSnapshot,
+          votes: currentVotes,
+          votedCount: voteRound ? voteRound.votes.size : 0,
+          totalVoters: voteRound ? voteRound.totalVoters : participants.length,
         },
       }));
     } catch (e) {
@@ -435,4 +445,139 @@ async function handleCellClicked(token, sessionId, senderWs, connInfo, data) {
   }
 }
 
-module.exports = { attachWebSocketServer, broadcast, broadcastExcept, rooms, startSpinRound };
+// ─────────────────────────────────────────────────────────────────
+// 投票机制（Story 6.9-new）
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * 初始化投票轮次（由 startSession 在设置 deciding 后调用）
+ */
+function initVoteRound(token, sessionId, totalVoters, candidateSnapshot, deadlineAt) {
+  const existing = voteRounds.get(token);
+  if (existing?.deadlineTimer) clearTimeout(existing.deadlineTimer);
+
+  let deadlineTimer = null;
+  if (deadlineAt) {
+    const msUntilDeadline = new Date(deadlineAt).getTime() - Date.now();
+    if (msUntilDeadline > 0) {
+      deadlineTimer = setTimeout(() => _finalizeVoteRound(token, sessionId), msUntilDeadline);
+    } else {
+      // 截止时间已过，延迟 100ms 后立即结算
+      deadlineTimer = setTimeout(() => _finalizeVoteRound(token, sessionId), 100);
+    }
+  }
+
+  voteRounds.set(token, {
+    votes: new Map(),   // userKey → { restaurantId, restaurantName }
+    totalVoters,
+    candidateSnapshot,
+    deadlineTimer,
+    finalized: false,
+  });
+
+  console.log(`[Vote] initVoteRound token=${token} totalVoters=${totalVoters} deadline=${deadlineAt}`);
+}
+
+/**
+ * 记录一票，广播 vote_updated，全票后自动结算
+ * @returns {string} 'ok' | 'not_deciding' | 'no_round'
+ */
+function recordVote(token, userKey, restaurantId, restaurantName) {
+  const round = voteRounds.get(token);
+  if (!round || round.finalized) return 'no_round';
+
+  // 覆盖旧票
+  round.votes.set(userKey, { restaurantId, restaurantName });
+
+  const summary = _buildVotesSummary(round, round.candidateSnapshot);
+  broadcast(token, {
+    event: 'vote_updated',
+    data: {
+      votes: summary,
+      totalVoters: round.totalVoters,
+      votedCount: round.votes.size,
+    },
+  });
+
+  // 全部投完 → 自动结算
+  if (round.votes.size >= round.totalVoters) {
+    if (round.deadlineTimer) clearTimeout(round.deadlineTimer);
+    _finalizeVoteRound(token, null);
+  }
+
+  return 'ok';
+}
+
+/**
+ * 立即结算（close-vote 或截止时间到）
+ */
+function closeVoteRound(token) {
+  const round = voteRounds.get(token);
+  if (!round || round.finalized) return false;
+  if (round.deadlineTimer) clearTimeout(round.deadlineTimer);
+  _finalizeVoteRound(token, null);
+  return true;
+}
+
+/**
+ * 构建票数汇总数组（含 0 票候选项）
+ */
+function _buildVotesSummary(round, candidateSnapshot) {
+  // 先以 candidateSnapshot 初始化所有候选项为 0 票
+  const countMap = new Map();
+  (candidateSnapshot || []).forEach(r => {
+    countMap.set(String(r.id), { restaurantId: r.id, restaurantName: r.name, count: 0 });
+  });
+  // 累加实际票数
+  round.votes.forEach(({ restaurantId, restaurantName }) => {
+    const key = String(restaurantId);
+    if (countMap.has(key)) {
+      countMap.get(key).count++;
+    } else {
+      countMap.set(key, { restaurantId, restaurantName, count: 1 });
+    }
+  });
+  return [...countMap.values()].sort((a, b) => b.count - a.count);
+}
+
+/**
+ * 结算投票并广播 vote_result 或 no_votes
+ */
+function _finalizeVoteRound(token) {
+  const round = voteRounds.get(token);
+  if (!round) return;
+  if (round.finalized) return;
+  round.finalized = true;
+  voteRounds.delete(token);
+
+  if (round.votes.size === 0) {
+    broadcast(token, { event: 'no_votes', data: { message: '无人投票，请重试' } });
+    return;
+  }
+
+  const allVotes = _buildVotesSummary(round, round.candidateSnapshot);
+  const maxCount = allVotes[0].count;
+  const tied = allVotes.filter(v => v.count === maxCount);
+  const isTie = tied.length > 1;
+  const winner = tied[Math.floor(Math.random() * tied.length)];
+
+  broadcast(token, {
+    event: 'vote_result',
+    data: { winner, allVotes, isTie },
+  });
+}
+
+/**
+ * 获取当前票数（供 HTTP GET /votes 使用）
+ */
+function getVotesSummary(token) {
+  const round = voteRounds.get(token);
+  if (!round) return null;
+  return {
+    votes: _buildVotesSummary(round, round.candidateSnapshot),
+    totalVoters: round.totalVoters,
+    votedCount: round.votes.size,
+  };
+}
+
+module.exports = { attachWebSocketServer, broadcast, broadcastExcept, rooms, startSpinRound, initVoteRound, recordVote, closeVoteRound, getVotesSummary };
