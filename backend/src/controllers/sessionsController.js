@@ -127,17 +127,22 @@ async function getSessionState(req, res, next) {
   }
 }
 
-// ── 加入会话 (Story 6.4) ──────────────────────────────────────────
+// ── 加入会话 (Story 6.4 / 8.8) ──────────────────────────────────────────
+// req.userId 由 optionalAuth 设置：已登录 → 实名加入；null → 匿名（需昵称）
 async function joinSession(req, res, next) {
   try {
     const { token } = req.params;
     const { nickname } = req.body;
+    const loggedInUserId = req.userId || null;
 
-    if (!nickname || !nickname.trim()) {
-      return fail(res, 40001, '昵称不能为空');
-    }
-    if (nickname.trim().length > 20) {
-      return fail(res, 40001, '昵称最长20字');
+    // 匿名用户必须提供昵称
+    if (!loggedInUserId) {
+      if (!nickname || !nickname.trim()) {
+        return fail(res, 40001, '昵称不能为空');
+      }
+      if (nickname.trim().length > 20) {
+        return fail(res, 40001, '昵称最长20字');
+      }
     }
 
     const [[session]] = await pool.query(
@@ -162,17 +167,48 @@ async function joinSession(req, res, next) {
     try {
       await conn.beginTransaction();
 
-      const userExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const [userIns] = await conn.query(
-        `INSERT INTO users (name, is_temp, expires_at) VALUES (?, 1, ?)`,
-        [nickname.trim(), userExpiresAt]
-      );
-      const newUserId = userIns.insertId;
+      let joinUserId;
+      let joinNickname;
+
+      if (loggedInUserId) {
+        // ── 已登录用户：使用真实账户 ────────────────────────────────
+        const [[user]] = await conn.query(
+          'SELECT id, name FROM users WHERE id = ? AND is_temp = 0',
+          [loggedInUserId]
+        );
+        if (!user) {
+          await conn.rollback();
+          return fail(res, 40401, '用户账户不存在', 404);
+        }
+
+        // 避免重复加入
+        const [[existing]] = await conn.query(
+          'SELECT id FROM session_participants WHERE session_id = ? AND user_id = ?',
+          [session.id, loggedInUserId]
+        );
+        if (existing) {
+          await conn.rollback();
+          conn.release();
+          return success(res, { userId: loggedInUserId, sessionId: session.id, nickname: user.name }, 'ok', 200);
+        }
+
+        joinUserId   = loggedInUserId;
+        joinNickname = user.name;
+      } else {
+        // ── 匿名用户：创建临时账户 ─────────────────────────────────
+        const userExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const [userIns] = await conn.query(
+          `INSERT INTO users (name, is_temp, expires_at) VALUES (?, 1, ?)`,
+          [nickname.trim(), userExpiresAt]
+        );
+        joinUserId   = userIns.insertId;
+        joinNickname = nickname.trim();
+      }
 
       await conn.query(
         `INSERT INTO session_participants (session_id, user_id, nickname, role)
          VALUES (?, ?, ?, 'guest')`,
-        [session.id, newUserId, nickname.trim()]
+        [session.id, joinUserId, joinNickname]
       );
 
       await conn.commit();
@@ -184,10 +220,10 @@ async function joinSession(req, res, next) {
       );
       broadcast(token, {
         event: 'participant_joined',
-        data: { nickname: nickname.trim(), totalCount: countRow.cnt },
+        data: { nickname: joinNickname, totalCount: countRow.cnt },
       });
 
-      return success(res, { userId: newUserId, sessionId: session.id }, 'ok', 201);
+      return success(res, { userId: joinUserId, sessionId: session.id, nickname: joinNickname }, 'ok', 201);
     } catch (e) {
       await conn.rollback();
       throw e;
