@@ -16,10 +16,11 @@ function escapeHtml(str) {
 // ── 会话状态 ──────────────────────────────────────────────────────
 let sessionToken = null;
 let sessionMode = null;        // 'wheel' | 'minesweeper' | 'vote'
+let sessionDeadlineAt = null;  // ISO 字符串，v2 投票截止时间
 let sessionUserId = null;
 let sessionNickname = null;
 let isHost = false;
-let candidateSnapshot = [];    // 展开后的候选数组
+let candidateSnapshot = [];    // 候选数组
 let currentResult = null;      // { resultRestaurantId, resultRestaurantName }
 let remainingReplays = 3;
 
@@ -91,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 注册 SPA 路由页面
   registerPage('vote-setup',     { onEnter: onEnterVoteSetup });
   registerPage('lobby',          { onEnter: onEnterLobby });
+  registerPage('vote',           { onEnter: onEnterVotePage });   // Story 6.10-new 实现
   registerPage('multiplayer',    { onEnter: onEnterMultiplayer });
   registerPage('session-result', { onEnter: () => {} });
   registerPage('session-done',   { onEnter: () => {} });
@@ -450,8 +452,8 @@ function wsClose() {
 }
 
 function scheduleReconnect() {
-  // 只有在 lobby / multiplayer / session-result 页面才重连
-  const activePages = ['lobby', 'multiplayer', 'session-result'];
+  // 只有在 lobby / vote / multiplayer / session-result 页面才重连
+  const activePages = ['lobby', 'vote', 'multiplayer', 'session-result'];
   if (!activePages.includes(currentPage)) return;
 
   showReconnectHint();
@@ -516,13 +518,15 @@ function handleWsMessage(msg) {
 
 // ── session_state：初始状态同步 ────────────────────────────────────
 function onSessionState(data) {
-  sessionMode = data.mode || sessionMode;
+  // v2：不再依赖 data.mode，统一为 vote
+  sessionMode     = 'vote';
+  sessionDeadlineAt = data.deadlineAt || null;
   candidateSnapshot = data.candidateSnapshot || [];
 
   renderParticipants(data.participants || []);
 
   if (data.status === 'deciding' || data.status === 'deciding_locked') {
-    // 重连后恢复至决策页
+    // 重连后恢复至投票页
     onDecidingStarted(data);
   }
 }
@@ -536,11 +540,14 @@ function onParticipantJoined(data) {
   if (countEl) countEl.textContent = `参与者（${totalCount} 人）`;
 }
 
-// ── deciding_started：所有人跳转决策页 ────────────────────────────
+// ── deciding_started：所有人跳转投票页（Story 6.8-v2）────────────
 function onDecidingStarted(data) {
-  sessionMode = data.mode || sessionMode;
+  // v2：不再使用 data.mode，统一为 vote 模式
+  sessionMode       = 'vote';
+  sessionDeadlineAt = data.deadlineAt || null;
   candidateSnapshot = data.candidateSnapshot || candidateSnapshot;
-  navigate('multiplayer');
+  // 跳转至投票页（page-vote，由 Story 6.10-new 实现）
+  navigate('vote');
 }
 
 // ── result_revealed：结果揭晓（扫雷模式使用；转盘模式走 round_result）──
@@ -620,6 +627,15 @@ function updateStartButton(count) {
   if (hintEl) {
     hintEl.classList.toggle('hidden', count >= 2);
   }
+}
+
+// ── onEnterVotePage 占位（Story 6.10-new 实现）──────────────────────
+function onEnterVotePage() {
+  // 确保 WS 已连接（断线重连场景）
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connectWs();
+  }
+  // 实际 UI 由 Story 6.10-new 填充
 }
 
 // ── onEnterMultiplayer ─────────────────────────────────────────────
