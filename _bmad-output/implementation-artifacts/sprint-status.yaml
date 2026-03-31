@@ -1,0 +1,166 @@
+# generated: 2026-03-30
+# last_updated: 2026-03-31
+# project: takeout_decision_maker
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: takeout_decision_maker/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# SPRINT NOTES:
+# =============
+# Sprint 1-3 (Sprints 1-3): all done (58/58 stories)
+# Sprint 4: Epic 6 重设计 + Epic 8 用户认证 (新增，2026-03-30 Sprint Change Proposal)
+# 6.9/6.10 原多人游戏模式已废弃 (done)，由 6-9-new / 6-10-new 替代
+# 6.2/6.3/6.8/6.11 Sprint 4 重写，重置为 backlog
+
+generated: 2026-03-30
+last_updated: 2026-03-31
+project: takeout_decision_maker
+project_key: NOKEY
+tracking_system: file-system
+story_location: takeout_decision_maker/_bmad-output/implementation-artifacts
+
+development_status:
+  # ─────────────────────────────────────────────
+  # Epic 1: 餐厅库管理（Sprint 1 + Sprint 2）
+  # ─────────────────────────────────────────────
+  epic-1: done
+  1-1-project-skeleton-init: done
+  1-2-db-migrations: done
+  1-3-express-backend-skeleton: done
+  1-4-frontend-static-framework: done
+  1-5-get-restaurants-api: done
+  1-6-restaurant-list-page: done
+  1-7-empty-state-guide: done
+  1-8-add-restaurant-api: done
+  1-9-add-restaurant-form: done
+  1-10-json-batch-import-api: done
+  1-11-json-batch-import-ui: done
+  1-12-edit-restaurant: done
+  1-13-soft-delete-trash-api: done
+  1-14-trash-page: done
+  1-15-favorite-toggle: done
+  1-16-favorites-page: done
+  1-17-blacklist-toggle: done
+  1-18-blacklist-page: done
+  epic-1-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 2: 转盘决策流程（Sprint 1）
+  # ─────────────────────────────────────────────
+  epic-2: done
+  2-1-candidates-api: done
+  2-2-daily-config-api: done
+  2-3-home-decision-entry: done
+  2-4-mode-select-page: done
+  2-5-wheel-candidates-build: done
+  2-6-wheel-canvas-render: done
+  2-7-wheel-spin-animation: done
+  2-8-wheel-result-page: done
+  2-9-history-api-basic: done
+  epic-2-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 3: 扫雷决策流程（Sprint 2）
+  # ─────────────────────────────────────────────
+  epic-3: done
+  3-1-minesweeper-data-build: done
+  3-2-minesweeper-flip-ui: done
+  3-3-minesweeper-result-page: done
+  3-4-minesweeper-mode-entry: done
+  epic-3-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 4: 个性化设置（Sprint 2）
+  # ─────────────────────────────────────────────
+  epic-4: done
+  4-1-settings-api: done
+  4-2-settings-page: done
+  epic-4-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 5: 历史沉淀与智能过滤（Sprint 2）
+  # ─────────────────────────────────────────────
+  epic-5: done
+  5-1-history-list: done
+  5-2-history-exclusion: done
+  5-3-mood-filter-backend: done
+  5-4-mood-selector-ui: done
+  5-5-flavor-filter-backend: done
+  5-6-flavor-preference-ui: done
+  epic-5-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 6: 多人实时协作决策（Sprint 3 done + Sprint 4 重设计）
+  # ─────────────────────────────────────────────
+  epic-6: in-progress
+  6-1-websocket-server-skeleton: done
+  6-2-create-session-api: backlog        # Sprint 4 重写（自选餐厅 + 截止时间）
+  6-3-share-link-ui: backlog             # Sprint 4 重写（餐厅勾选 + 截止时间设置）
+  6-4-join-session-api: done
+  6-5-join-nickname-page: done
+  6-6-waiting-room-list: done
+  6-7-ws-waiting-room-events: done
+  6-8-ws-start-broadcast: backlog        # Sprint 4 轻度修改（移除 mode，加 deadlineAt）
+  6-9-multiplayer-wheel: done            # 废弃（Sprint 4 清理代码，原多人转盘）
+  6-10-multiplayer-minesweeper: done     # 废弃（Sprint 4 清理代码，原多人扫雷）
+  6-11-multiplayer-result-page: backlog  # Sprint 4 重写（投票结果页）
+  6-9-new-vote-api-ws: backlog           # Sprint 4 新增（投票后端 + WS 事件）
+  6-10-new-vote-ui: backlog              # Sprint 4 新增（投票前端页）
+  6-12-ws-reconnect: done
+  epic-6-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 7: 上线就绪与质量打磨（Sprint 3）
+  # ─────────────────────────────────────────────
+  epic-7: done
+  7-1-performance-optimization: done
+  7-2-mobile-responsive: done
+  7-3-global-error-boundary: done
+  7-4-cross-browser-compat: done
+  7-5-ws-load-test: done
+  7-6-deploy-checklist: done
+  7-7-db-setup-wizard: done
+  epic-7-retrospective: optional
+
+  # ─────────────────────────────────────────────
+  # Epic 8: 用户注册与登录（Sprint 4 全新）
+  # ─────────────────────────────────────────────
+  epic-8: in-progress
+  8-1-auth-db-migration: done
+  8-2-register-api: backlog
+  8-3-login-api: backlog
+  8-4-jwt-middleware: backlog
+  8-5-login-register-page: backlog
+  8-6-token-management: backlog
+  8-7-user-profile-page: backlog
+  8-8-anonymous-join: backlog
+  epic-8-retrospective: optional

@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "node_modules/.bin/jest --forceExit",
-    "migrate": "node migrations/init.js"
+    "migrate": "node migrations/init.js",
+    "migrate:auth": "node migrations/add-auth-fields.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
