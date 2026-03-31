@@ -1,14 +1,36 @@
-function requireUserId(req, res, next) {
-  const userId = req.headers['x-user-id'];
-  if (!userId) {
-    return res.status(400).json({
-      code: 40001,
-      message: '缺少 X-User-Id',
+const jwt = require('jsonwebtoken');
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      code: 40101,
+      message: '未登录',
       data: null,
     });
   }
-  req.userId = parseInt(userId, 10);
-  next();
+
+  const token = authHeader.slice(7); // remove 'Bearer '
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    req.userId = payload.userId;
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        code: 40102,
+        message: '登录已过期，请重新登录',
+        data: null,
+      });
+    }
+    return res.status(401).json({
+      code: 40101,
+      message: '未登录',
+      data: null,
+    });
+  }
 }
 
-module.exports = { requireUserId };
+module.exports = { requireAuth };

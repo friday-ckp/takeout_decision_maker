@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { requireUserId } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { getSettings, patchSettings } = require('../controllers/settingsController');
 
-router.use(requireUserId);
+router.use(requireAuth);
 router.get('/',   getSettings);
 router.patch('/', patchSettings);
 

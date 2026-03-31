@@ -13,8 +13,11 @@ jest.mock('../../src/models/db', () => ({
   testConnection: jest.fn().mockResolvedValue(),
 }));
 
+jest.mock('jsonwebtoken', () => ({ verify: jest.fn().mockReturnValue({ userId: 1 }) }));
+
 const { pool } = require('../../src/models/db');
-const USER_HEADER = { 'X-User-Id': '1' };
+
+const USER_HEADER = { 'Authorization': 'Bearer test.token' };
 
 afterEach(() => jest.clearAllMocks());
 

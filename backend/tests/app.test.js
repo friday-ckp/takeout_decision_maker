@@ -1,5 +1,5 @@
 /**
- * Story 1.3 验收测试脚手架
+ * Story 1.3 验收测试脚手架（更新 Story 8.4：X-User-Id → JWT Bearer Token）
  * 测试后端骨架：统一响应格式、X-Request-Id、auth 中间件、错误处理
  */
 const request = require('supertest');
@@ -8,6 +8,11 @@ const request = require('supertest');
 jest.mock('../src/models/db', () => ({
   pool: {},
   testConnection: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('jsonwebtoken', () => ({
+  verify: jest.fn(),
+  sign: jest.fn().mockReturnValue('mock.jwt.token'),
 }));
 
 const app = require('../src/app');
@@ -29,13 +34,8 @@ describe('后端骨架', () => {
     );
   });
 
-  test('缺少 X-User-Id 时返回 40001', async () => {
-    // 临时挂载一个需要 auth 的测试路由
-    const express = require('express');
-    const testApp = require('../src/app');
-    const { requireUserId } = require('../src/middleware/auth');
-
-    // 直接测试 auth 中间件
+  test('缺少 Authorization 时返回 401/40101', async () => {
+    const { requireAuth } = require('../src/middleware/auth');
     const mockReq = { headers: {} };
     const mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -43,26 +43,53 @@ describe('后端骨架', () => {
     };
     const next = jest.fn();
 
-    requireUserId(mockReq, mockRes, next);
+    requireAuth(mockReq, mockRes, next);
 
-    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockRes.status).toHaveBeenCalledWith(401);
     expect(mockRes.json).toHaveBeenCalledWith({
-      code: 40001,
-      message: '缺少 X-User-Id',
+      code: 40101,
+      message: '未登录',
       data: null,
     });
     expect(next).not.toHaveBeenCalled();
   });
 
-  test('有 X-User-Id 时 auth 中间件放行', () => {
-    const { requireUserId } = require('../src/middleware/auth');
-    const mockReq = { headers: { 'x-user-id': '1' } };
+  test('有效 Bearer Token 时 auth 中间件放行', () => {
+    const jwt = require('jsonwebtoken');
+    jwt.verify.mockReturnValueOnce({ userId: 1 });
+
+    const { requireAuth } = require('../src/middleware/auth');
+    const mockReq = { headers: { authorization: 'Bearer valid.token' } };
     const mockRes = {};
     const next = jest.fn();
 
-    requireUserId(mockReq, mockRes, next);
+    requireAuth(mockReq, mockRes, next);
 
     expect(next).toHaveBeenCalled();
     expect(mockReq.userId).toBe(1);
+  });
+
+  test('过期 Token 返回 401/40102', () => {
+    const jwt = require('jsonwebtoken');
+    const expiredError = new Error('jwt expired');
+    expiredError.name = 'TokenExpiredError';
+    jwt.verify.mockImplementationOnce(() => { throw expiredError; });
+
+    const { requireAuth } = require('../src/middleware/auth');
+    const mockReq = { headers: { authorization: 'Bearer expired.token' } };
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+    const next = jest.fn();
+
+    requireAuth(mockReq, mockRes, next);
+
+    expect(mockRes.status).toHaveBeenCalledWith(401);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      code: 40102,
+      message: '登录已过期，请重新登录',
+      data: null,
+    });
   });
 });
