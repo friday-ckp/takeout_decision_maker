@@ -1,7 +1,8 @@
 /**
  * 用户认证 API 集成测试
- * Story: 8.2
+ * Story: 8.2, 8.3
  * POST /api/auth/register — 用户注册
+ * POST /api/auth/login    — 用户登录
  */
 
 const request = require('supertest');
@@ -14,6 +15,7 @@ jest.mock('../../src/models/db', () => ({
 
 jest.mock('bcryptjs', () => ({
   hash: jest.fn().mockResolvedValue('hashed_password'),
+  compare: jest.fn(),
 }));
 
 jest.mock('jsonwebtoken', () => ({
@@ -21,6 +23,7 @@ jest.mock('jsonwebtoken', () => ({
 }));
 
 const { pool } = require('../../src/models/db');
+const bcrypt = require('bcryptjs');
 
 afterEach(() => jest.clearAllMocks());
 
@@ -84,5 +87,61 @@ describe('POST /api/auth/register', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe(40003);
+  });
+});
+
+// ── POST /api/auth/login ──────────────────────────────────────────────────
+describe('POST /api/auth/login', () => {
+  const validLogin = { email: 'test@example.com', password: 'password123' };
+  const mockUser = { id: 1, name: '测试用户', email: 'test@example.com', password_hash: 'hashed' };
+
+  test('正确凭据 → 200 + token + userId + name', async () => {
+    pool.query.mockResolvedValueOnce([[mockUser]]);
+    bcrypt.compare.mockResolvedValueOnce(true);
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send(validLogin);
+
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data).toMatchObject({
+      token: 'mock.jwt.token',
+      userId: 1,
+      name: '测试用户',
+    });
+  });
+
+  test('用户不存在 → 401', async () => {
+    pool.query.mockResolvedValueOnce([[]]); // 用户不存在
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send(validLogin);
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe(40101);
+    expect(res.body.message).toBe('邮箱或密码错误');
+  });
+
+  test('密码错误 → 401', async () => {
+    pool.query.mockResolvedValueOnce([[mockUser]]);
+    bcrypt.compare.mockResolvedValueOnce(false); // 密码不匹配
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send(validLogin);
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe(40101);
+  });
+
+  test('缺少 email/password → 400', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'test@example.com' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe(40001);
   });
 });
