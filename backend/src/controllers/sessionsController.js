@@ -294,6 +294,9 @@ async function confirmSession(req, res, next) {
       [token]
     );
     if (!session) return fail(res, 40401, '会话不存在', 404);
+    if (session.host_user_id !== req.userId) {
+      return fail(res, 40301, '只有发起人才能确认结果', 403);
+    }
     if (!['deciding', 'deciding_locked'].includes(session.status)) {
       return fail(res, 40003, '会话状态不允许确认');
     }
@@ -378,6 +381,15 @@ async function replaySession(req, res, next) {
     );
 
     await pool.query('UPDATE decision_sessions SET status = ? WHERE id = ?', ['deciding', session.id]);
+
+    // 重置内存中的投票轮次（清除上一轮选票）
+    const [participants] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM session_participants WHERE session_id = ?',
+      [session.id]
+    );
+    const totalVoters = participants[0].cnt;
+    const candidateSnapshot = JSON.parse(session.candidate_snapshot || '[]');
+    initVoteRound(token, session.id, totalVoters, candidateSnapshot, session.deadline_at);
 
     const remainingReplays = maxReplay - (replayCount + 1);
     broadcast(token, { event: 'replay_initiated', data: { remainingReplays } });
