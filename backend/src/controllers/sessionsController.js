@@ -1,11 +1,11 @@
 /**
  * 多人会话 Controller
- * Stories: 6.2-v2 / 6.4 / 6.7 / 6.8 / 6.11
+ * Stories: 6.2-v2 / 6.4 / 6.7 / 6.8 / 6.9-new / 6.11
  */
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../models/db');
 const { success, fail } = require('../utils/response');
-const { broadcast } = require('../websocket/server');
+const { broadcast, initVoteRound, recordVote, closeVoteRound, getVotesSummary } = require('../websocket/server');
 
 // ── 创建会话 (Story 6.2-v2) ───────────────────────────────────────
 async function createSession(req, res, next) {
@@ -263,6 +263,13 @@ async function startSession(req, res, next) {
     let candidateSnapshot = [];
     try { candidateSnapshot = JSON.parse(session.candidate_snapshot || '[]'); } catch (_) {}
 
+    // 查询参与人数，初始化投票轮次（Story 6.9-new）
+    const [[{ totalVoters }]] = await pool.query(
+      'SELECT COUNT(*) AS totalVoters FROM session_participants WHERE session_id = ?',
+      [session.id]
+    );
+    initVoteRound(token, session.id, totalVoters, candidateSnapshot, session.deadline_at);
+
     broadcast(token, {
       event: 'deciding_started',
       data: { status: 'deciding', deadlineAt: session.deadline_at || null, candidateSnapshot },
@@ -381,6 +388,77 @@ async function replaySession(req, res, next) {
   }
 }
 
+// ── 提交投票（Story 6.9-new）──────────────────────────────────────
+async function submitVote(req, res, next) {
+  try {
+    const { token } = req.params;
+    const { restaurantId, restaurantName } = req.body;
+
+    if (!restaurantName) return fail(res, 40001, 'restaurantName 不能为空');
+
+    const [[session]] = await pool.query(
+      'SELECT id, status FROM decision_sessions WHERE share_token = ?',
+      [token]
+    );
+    if (!session) return fail(res, 40401, '会话不存在', 404);
+    if (session.status !== 'deciding') return fail(res, 40003, '投票尚未开始或已结束');
+
+    // 用 userId 或 req body 里传来的 nickname 作为 userKey
+    const userKey = req.userId
+      ? `uid_${req.userId}`
+      : req.body.nickname || req.headers['x-nickname'] || `anon_${Date.now()}`;
+
+    const result = recordVote(token, userKey, restaurantId, restaurantName);
+    if (result === 'no_round') return fail(res, 40003, '投票轮次不存在，请稍后重试');
+
+    return success(res, { voted: true });
+  } catch (e) {
+    next(e);
+  }
+}
+
+// ── 关闭投票（Story 6.9-new）──────────────────────────────────────
+async function closeVote(req, res, next) {
+  try {
+    const { token } = req.params;
+
+    const [[session]] = await pool.query(
+      'SELECT id, status, host_user_id FROM decision_sessions WHERE share_token = ?',
+      [token]
+    );
+    if (!session) return fail(res, 40401, '会话不存在', 404);
+    if (session.status !== 'deciding') return fail(res, 40003, '会话不在决策中');
+    if (session.host_user_id !== req.userId) return fail(res, 40301, '只有发起人可以关闭投票', 403);
+
+    const closed = closeVoteRound(token);
+    if (!closed) return fail(res, 40003, '投票轮次不存在或已结算');
+
+    return success(res, { closed: true });
+  } catch (e) {
+    next(e);
+  }
+}
+
+// ── 查询当前票数（Story 6.9-new）──────────────────────────────────
+async function getVotes(req, res, next) {
+  try {
+    const { token } = req.params;
+
+    const [[session]] = await pool.query(
+      'SELECT id, status FROM decision_sessions WHERE share_token = ?',
+      [token]
+    );
+    if (!session) return fail(res, 40401, '会话不存在', 404);
+
+    const summary = getVotesSummary(token);
+    if (!summary) return success(res, { votes: [], totalVoters: 0, votedCount: 0 });
+
+    return success(res, summary);
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
   createSession,
   getSessionState,
@@ -388,4 +466,7 @@ module.exports = {
   startSession,
   confirmSession,
   replaySession,
+  submitVote,
+  closeVote,
+  getVotes,
 };

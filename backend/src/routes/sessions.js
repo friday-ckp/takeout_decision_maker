@@ -17,4 +17,9 @@ router.post('/:token/start',   requireAuth, c.startSession);
 router.post('/:token/confirm', c.confirmSession);
 router.post('/:token/replay',  requireAuth, c.replaySession);
 
+// 投票（Story 6.9-new）
+router.post('/:token/vote',       optionalAuth, c.submitVote);
+router.post('/:token/close-vote', requireAuth,  c.closeVote);
+router.get('/:token/votes',                     c.getVotes);
+
 module.exports = router;
