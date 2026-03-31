@@ -15,7 +15,7 @@ function escapeHtml(str) {
 
 // ── 会话状态 ──────────────────────────────────────────────────────
 let sessionToken = null;
-let sessionMode = null;        // 'wheel' | 'minesweeper'
+let sessionMode = null;        // 'wheel' | 'minesweeper' | 'vote'
 let sessionUserId = null;
 let sessionNickname = null;
 let isHost = false;
@@ -45,26 +45,24 @@ let wsReconnectTimer = null;
 let wsReconnectDelay = 1000;
 const WS_MAX_DELAY = 5000;
 
-// ── 多人模式选择弹窗（Story 6.3）─────────────────────────────────
+// ── 发起投票入口（Story 6.3-v2）──────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const overlay    = document.getElementById('multi-mode-overlay');
-  const btnClose   = document.getElementById('btn-close-multi-mode');
-  const btnWheel   = document.getElementById('btn-multi-wheel');
-  const btnMine    = document.getElementById('btn-multi-mine');
   const btnInvite  = document.getElementById('btn-invite-friends');
 
-  // 点击「邀请朋友一起选」→ 打开模式弹窗
+  // 点击「邀请朋友一起选」→ 检查登录后进入餐厅勾选页
   btnInvite?.addEventListener('click', () => {
-    overlay?.classList.remove('hidden');
-  });
-  btnClose?.addEventListener('click', () => overlay?.classList.add('hidden'));
-  overlay?.addEventListener('click', e => {
-    if (e.target === overlay) overlay.classList.add('hidden');
+    if (typeof checkAuth === 'function' && !checkAuth()) return;
+    navigate('vote-setup');
   });
 
-  // 选择模式后创建会话
-  btnWheel?.addEventListener('click', () => createAndGoLobby('wheel'));
-  btnMine?.addEventListener('click',  () => createAndGoLobby('minesweeper'));
+  // 勾选页返回
+  document.getElementById('btn-back-from-vote-setup')?.addEventListener('click', () => navigate('decide'));
+
+  // 勾选页「创建投票」
+  document.getElementById('btn-create-vote')?.addEventListener('click', createVoteSession);
+
+  // 勾选页「全选/取消全选」
+  document.getElementById('btn-vote-select-all')?.addEventListener('click', toggleSelectAll);
 
   // lobby 页按钮
   document.getElementById('btn-lobby-join')?.addEventListener('click', handleLobbyJoin);
@@ -91,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-done-home')?.addEventListener('click',  () => navigate('home'));
 
   // 注册 SPA 路由页面
+  registerPage('vote-setup',     { onEnter: onEnterVoteSetup });
   registerPage('lobby',          { onEnter: onEnterLobby });
   registerPage('multiplayer',    { onEnter: onEnterMultiplayer });
   registerPage('session-result', { onEnter: () => {} });
@@ -126,27 +125,135 @@ function checkUrlRoute() {
   }
 }
 
-// ── 创建会话并跳转 Lobby（Story 6.3）─────────────────────────────
-async function createAndGoLobby(mode) {
-  document.getElementById('multi-mode-overlay')?.classList.add('hidden');
+// ── 发起投票页（Story 6.3-v2）────────────────────────────────────
+async function onEnterVoteSetup() {
+  const loading = document.getElementById('vote-setup-loading');
+  const empty   = document.getElementById('vote-setup-empty');
+  const content = document.getElementById('vote-setup-content');
+
+  loading?.classList.remove('hidden');
+  empty?.classList.add('hidden');
+  content?.classList.add('hidden');
 
   try {
-    const data = await api.post('/api/sessions', { mode });
+    const data = await api.get('/api/restaurants');
+    const restaurants = (data.list || []).filter(r => !r.is_deleted && !r.is_blacklisted);
+
+    loading?.classList.add('hidden');
+
+    if (restaurants.length === 0) {
+      empty?.classList.remove('hidden');
+      return;
+    }
+
+    content?.classList.remove('hidden');
+    renderVoteSetupList(restaurants);
+    setDefaultDeadline();
+    updateVoteSetupCount();
+  } catch (e) {
+    loading?.classList.add('hidden');
+    empty?.classList.remove('hidden');
+  }
+}
+
+function renderVoteSetupList(restaurants) {
+  const container = document.getElementById('vote-setup-list');
+  if (!container) return;
+
+  container.innerHTML = restaurants.map(r => `
+    <label class="vote-setup-item" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f8f9ff;border-radius:10px;border:1.5px solid #e0e7ff;cursor:pointer;transition:border-color 0.15s">
+      <input type="checkbox" class="vote-restaurant-cb" data-id="${r.id}" checked
+        style="width:18px;height:18px;accent-color:#6366f1;cursor:pointer;flex-shrink:0" />
+      <span style="flex:1;font-size:14px;font-weight:500;color:#1f2937">${escapeHtml(r.name)}</span>
+      ${r.category ? `<span style="font-size:12px;color:#9ca3af;background:#f3f4f6;padding:2px 8px;border-radius:20px">${escapeHtml(r.category)}</span>` : ''}
+    </label>
+  `).join('');
+
+  container.querySelectorAll('.vote-restaurant-cb').forEach(cb => {
+    cb.addEventListener('change', updateVoteSetupCount);
+  });
+}
+
+function setDefaultDeadline() {
+  const input = document.getElementById('vote-deadline-input');
+  if (!input) return;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0);
+  // 如果当前时间已过 20:00，默认设为明天 20:00
+  const deadline = today > now ? today : new Date(today.getTime() + 86400000);
+  // datetime-local 格式：YYYY-MM-DDTHH:mm
+  const pad = n => String(n).padStart(2, '0');
+  input.value = `${deadline.getFullYear()}-${pad(deadline.getMonth()+1)}-${pad(deadline.getDate())}T${pad(deadline.getHours())}:${pad(deadline.getMinutes())}`;
+  input.min = new Date(now.getTime() + 60000).toISOString().slice(0, 16);
+}
+
+function updateVoteSetupCount() {
+  const checked = document.querySelectorAll('.vote-restaurant-cb:checked');
+  const count = checked.length;
+  const total = document.querySelectorAll('.vote-restaurant-cb').length;
+
+  const label = document.getElementById('vote-setup-count-label');
+  if (label) label.textContent = `已选 ${count} 家餐厅`;
+
+  const btn = document.getElementById('btn-create-vote');
+  const hint = document.getElementById('vote-setup-min-hint');
+  const selectAllBtn = document.getElementById('btn-vote-select-all');
+
+  if (count < 2) {
+    if (btn) btn.disabled = true;
+    hint?.classList.remove('hidden');
+  } else {
+    if (btn) btn.disabled = false;
+    hint?.classList.add('hidden');
+  }
+
+  if (selectAllBtn) {
+    selectAllBtn.textContent = count === total ? '取消全选' : '全选';
+  }
+}
+
+function toggleSelectAll() {
+  const checkboxes = document.querySelectorAll('.vote-restaurant-cb');
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  checkboxes.forEach(cb => { cb.checked = !allChecked; });
+  updateVoteSetupCount();
+}
+
+async function createVoteSession() {
+  const selectedIds = Array.from(document.querySelectorAll('.vote-restaurant-cb:checked'))
+    .map(cb => parseInt(cb.dataset.id, 10));
+
+  const deadlineInput = document.getElementById('vote-deadline-input');
+  const deadlineAt = deadlineInput?.value ? new Date(deadlineInput.value).toISOString() : null;
+
+  if (selectedIds.length < 2) {
+    showToast('至少选择2家餐厅', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-create-vote');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '创建中…';
+
+  try {
+    const data = await api.post('/api/sessions', { selectedRestaurantIds: selectedIds, deadlineAt });
     sessionToken    = data.shareToken;
-    sessionMode     = mode;
+    sessionMode     = 'vote';
     sessionUserId   = data.hostUserId;
     sessionNickname = '我（发起人）';
     isHost          = true;
 
     // 设置分享链接
-    const baseUrl = window.location.origin;
-    const shareLink = `${baseUrl}/session/${sessionToken}/lobby`;
-    const linkEl = document.getElementById('lobby-share-link');
-    if (linkEl) linkEl.value = shareLink;
+    const shareLink = `${window.location.origin}/session/${sessionToken}/lobby`;
+    const linkEl = document.getElementById('lobby-share-link-anchor');
+    if (linkEl) { linkEl.textContent = shareLink; linkEl.href = shareLink; }
 
     navigate('lobby');
   } catch (e) {
     showToast(e.message || '创建会话失败，请重试', 'error');
+    btn.disabled = false;
+    btn.textContent = origText;
   }
 }
 
@@ -211,6 +318,13 @@ function showLobbyRoom() {
     document.getElementById('lobby-share-section')?.classList.remove('hidden');
     document.getElementById('btn-lobby-start')?.classList.remove('hidden');
     document.getElementById('lobby-waiting-hint')?.classList.add('hidden');
+    // 确保分享链接已填充（重连/刷新场景）
+    const anchorEl = document.getElementById('lobby-share-link-anchor');
+    if (anchorEl && sessionToken && !anchorEl.textContent.trim()) {
+      const shareLink = `${window.location.origin}/session/${sessionToken}/lobby`;
+      anchorEl.textContent = shareLink;
+      anchorEl.href = shareLink;
+    }
   } else {
     document.getElementById('lobby-share-section')?.classList.add('hidden');
     document.getElementById('btn-lobby-start')?.classList.add('hidden');
@@ -257,19 +371,30 @@ async function handleLobbyJoin() {
   }
 }
 
-// ── 复制分享链接（Story 6.3）─────────────────────────────────────
+// ── 复制分享链接（Story 6.3-v2）──────────────────────────────────
 function copyShareLink() {
-  const link = document.getElementById('lobby-share-link')?.value;
+  const el = document.getElementById('lobby-share-link-anchor');
+  const link = el?.textContent?.trim();
   if (!link) return;
-  navigator.clipboard?.writeText(link)
-    .then(() => showToast('链接已复制'))
-    .catch(() => {
-      // fallback
-      const el = document.getElementById('lobby-share-link');
-      el?.select();
-      document.execCommand('copy');
-      showToast('链接已复制');
-    });
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(link)
+      .then(() => showToast('链接已复制'))
+      .catch(() => fallbackCopy(link));
+  } else {
+    fallbackCopy(link);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast('链接已复制');
 }
 
 // ── 发起人开始决策（Story 6.8）───────────────────────────────────
