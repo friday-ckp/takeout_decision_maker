@@ -1191,26 +1191,45 @@
   </div>
 </div>
 
-<!-- ══ 多人模式选择弹窗（Story 6.3）══════════════════════════════ -->
-<div class="modal-overlay hidden" id="multi-mode-overlay">
-  <div class="modal-box" style="max-width:480px">
-    <div class="modal-header">
-      <span>选择多人决策方式</span>
-      <button class="close-btn" id="btn-close-multi-mode">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+<!-- ══ 发起投票页（Story 6.3-v2）══════════════════════════════ -->
+<div class="app-page hidden" id="page-vote-setup">
+  <div class="content-wrap" style="max-width:600px">
+    <div class="page-back" id="btn-back-from-vote-setup">← 返回</div>
+    <div class="page-title">发起投票</div>
+
+    <!-- 加载中占位 -->
+    <div id="vote-setup-loading" style="text-align:center;padding:40px;color:#888">加载餐厅列表中…</div>
+
+    <!-- 空状态 -->
+    <div id="vote-setup-empty" class="hidden" style="text-align:center;padding:40px">
+      <div style="font-size:36px;margin-bottom:12px">🍽️</div>
+      <p style="color:#888;margin-bottom:16px">餐厅库为空，请先添加餐厅</p>
+      <button class="btn btn-primary" onclick="navigate('add-restaurant')">去添加餐厅</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:8px 0 16px">
-      <div class="mode-card wheel" id="btn-multi-wheel" role="button" tabindex="0" style="padding:24px 20px">
-        <div class="mc-icon" style="font-size:36px">🎡</div>
-        <div class="mc-name" style="font-size:16px">转盘模式</div>
-        <div class="mc-desc" style="font-size:12px">发起人控制旋转</div>
+
+    <!-- 勾选区域 -->
+    <div id="vote-setup-content" class="hidden">
+      <!-- 已选计数 + 全选 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span id="vote-setup-count-label" style="font-size:14px;font-weight:600;color:#6366f1">已选 0 家餐厅</span>
+        <button class="btn btn-secondary btn-sm" id="btn-vote-select-all" style="font-size:12px;padding:4px 12px">全选</button>
       </div>
-      <div class="mode-card mine" id="btn-multi-mine" role="button" tabindex="0" style="padding:24px 20px">
-        <div class="mc-icon" style="font-size:36px">💣</div>
-        <div class="mc-name" style="font-size:16px">扫雷模式</div>
-        <div class="mc-desc" style="font-size:12px">先到先得点格子</div>
+
+      <!-- 最少提示 -->
+      <div id="vote-setup-min-hint" class="hidden" style="font-size:12px;color:#ef4444;margin-bottom:10px">至少选择2家餐厅</div>
+
+      <!-- 餐厅勾选列表 -->
+      <div id="vote-setup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;max-height:40vh;overflow-y:auto"></div>
+
+      <!-- 截止时间 -->
+      <div style="margin-bottom:24px">
+        <label style="font-size:14px;font-weight:600;color:#374151;display:block;margin-bottom:8px">投票截止时间</label>
+        <input type="datetime-local" id="vote-deadline-input" class="form-input" style="font-size:14px" />
+        <p style="font-size:12px;color:#9ca3af;margin-top:6px">截止时间后自动公布得票最多的餐厅</p>
       </div>
+
+      <!-- 创建按钮 -->
+      <button class="btn btn-primary btn-lg btn-full" id="btn-create-vote" disabled style="margin-bottom:8px">创建投票</button>
     </div>
   </div>
 </div>
@@ -1245,7 +1264,8 @@
       <div id="lobby-share-section" class="hidden" style="margin-bottom:20px">
         <p style="font-size:13px;color:#888;margin-bottom:8px">分享以下链接邀请朋友：</p>
         <div style="display:flex;gap:8px;align-items:center">
-          <input class="form-input" id="lobby-share-link" readonly style="font-size:12px;color:#6366f1;background:#f0f2ff;border-color:#e0e7ff;flex:1" />
+          <a id="lobby-share-link-anchor" href="#" target="_blank" rel="noopener noreferrer"
+             style="flex:1;font-size:12px;color:#6366f1;background:#f0f2ff;border:1.5px solid #e0e7ff;border-radius:8px;padding:8px 12px;word-break:break-all;text-decoration:none;cursor:pointer;display:block"></a>
           <button class="btn btn-secondary btn-sm" id="btn-copy-link">复制</button>
         </div>
       </div>
