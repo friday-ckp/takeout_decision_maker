@@ -83,10 +83,11 @@ function updateNavUserState() {
 
   if (user) {
     authArea.innerHTML = `
-      <span class="nav-username">${escapeHtml(user.name || user.email)}</span>
+      <button class="link-btn nav-username" id="goto-profile-btn" title="查看个人信息">${escapeHtml(user.name || user.email)}</button>
       <button class="btn btn--ghost btn--sm" id="logout-btn">退出</button>
     `;
     document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('goto-profile-btn').addEventListener('click', () => navigate('profile'));
   } else {
     authArea.innerHTML = `
       <button class="btn btn--ghost btn--sm" id="go-login-btn">登录</button>
@@ -161,6 +162,61 @@ function initAuthPages() {
         btn.disabled = true;
         try {
           await authRegister(name, email, password);
+        } catch (err) {
+          errEl.textContent = err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    },
+  });
+
+  // ── 个人信息页 ──
+  registerPage('profile', {
+    async onEnter() {
+      if (!checkAuth()) return;
+      const errEl     = document.getElementById('profile-error');
+      const successEl = document.getElementById('profile-success');
+      const nameInput = document.getElementById('profile-name');
+      const emailInput= document.getElementById('profile-email');
+      if (!nameInput) return;
+
+      errEl.textContent     = '';
+      successEl.textContent = '';
+
+      // 填充当前数据
+      const user = getUser();
+      if (user) {
+        nameInput.value  = user.name  || '';
+        emailInput.value = user.email || '';
+      }
+
+      // 从服务端刷新
+      try {
+        const fresh = await api.get('/api/users/me');
+        nameInput.value  = fresh.name  || '';
+        emailInput.value = fresh.email || '';
+        // 同步更新 localStorage 中的用户名
+        const stored = getUser() || {};
+        saveAuth(getToken(), { ...stored, name: fresh.name, email: fresh.email });
+      } catch (_) { /* 离线时用本地数据 */ }
+
+      const form = document.getElementById('profile-form');
+      form.onsubmit = null;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const newName = nameInput.value.trim();
+        const btn     = form.querySelector('button[type=submit]');
+        errEl.textContent     = '';
+        successEl.textContent = '';
+        btn.disabled = true;
+        try {
+          const updated = await api.patch('/api/users/me', { name: newName });
+          const stored  = getUser() || {};
+          saveAuth(getToken(), { ...stored, name: updated.name, email: updated.email });
+          updateNavUserState();
+          nameInput.value        = updated.name || '';
+          successEl.textContent  = '修改成功 ✓';
         } catch (err) {
           errEl.textContent = err.message;
         } finally {
