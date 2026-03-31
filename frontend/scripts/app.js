@@ -10,7 +10,7 @@ function registerPage(id, { onEnter } = {}) {
 
 let currentPage = null;
 
-const PROTECTED_PAGES = ['home','restaurants','history','settings','trash','favorites','blacklist','import','decide','wheel','mine','session'];
+const PROTECTED_PAGES = ['home','restaurants','history','settings','trash','favorites','blacklist','import','decide','wheel','mine','session','profile'];
 
 function navigate(pageId) {
   if (currentPage === pageId) return;

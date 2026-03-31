@@ -13,5 +13,6 @@ router.use('/history',      require('./history'));
 router.use('/settings',     require('./settings'));
 router.use('/sessions',     require('./sessions'));
 router.use('/auth',         require('./auth'));
+router.use('/users',        require('./users'));
 
 module.exports = router;
