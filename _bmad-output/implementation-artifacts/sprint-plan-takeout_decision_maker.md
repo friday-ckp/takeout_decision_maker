@@ -28,10 +28,10 @@ sprints:
     stories: 19
   - id: sprint-4
     status: in-progress
-    points: 34
-    stories: 14
-totalPoints: 141
-totalStories: 72
+    points: 36
+    stories: 15
+totalPoints: 143
+totalStories: 73
 ---
 
 # 外卖点餐决策器 Sprint 计划
@@ -46,9 +46,9 @@ totalStories: 72
 | Sprint 1 | W1–W2（2周） | 单人转盘决策完整链路 | Epic 1（1.1~1.9）+ Epic 2（2.1~2.9） | 18 个 | 35 pts |
 | Sprint 2 | W3–W4（2周） | 扫雷 + 餐厅管理 + 历史过滤 + 设置 | Epic 1（1.10~1.18）+ Epic 3~5 | 21 个 | 38 pts |
 | Sprint 3 | W5–W6（2周） | 多人实时协作 + 打磨上线 | Epic 6~7 | 19 个 | 34 pts |
-| **Sprint 4** | **W7–W8（2周）** | **多人投票重设计 + 用户注册/登录** | **Epic 6（重设计）+ Epic 8（新）** | **14 个** | **34 pts** |
+| **Sprint 4** | **W7–W8（2周）** | **多人投票重设计 + 用户注册/登录** | **Epic 6（重设计）+ Epic 8（新）** | **15 个** | **36 pts** |
 
-**总故事点：141 pts ｜ 总 Stories：72 个**（含 Sprint 4 新增，Sprint 3 中 6.9/6.10 已废弃）
+**总故事点：143 pts ｜ 总 Stories：73 个**（含 Sprint 4 新增，Sprint 3 中 6.9/6.10 已废弃）
 
 > 详细 Epic / Story 拆解见：[epics-takeout_decision_maker.md](../_bmad-output/planning-artifacts/epics-takeout_decision_maker.md)
 > 变更说明见：[sprint-change-proposal-2026-03-30.md](sprint-change-proposal-2026-03-30.md)
@@ -331,13 +331,14 @@ totalStories: 72
 | 8.1 | DB 迁移：users 表 + sessions 表 + history 表字段变更 | FR-20, ARCH | 2 | done |
 | 8.2 | 注册 API（POST /api/auth/register） | FR-20 | 2 | done |
 | 8.3 | 登录 API（POST /api/auth/login → JWT） | FR-20 | 2 | done |
-| 8.4 | JWT 认证中间件（替换 X-User-Id header） | FR-20, ARCH | 3 | not-started |
-| 8.5 | 前端登录/注册页面 | FR-20 | 2 | not-started |
-| 8.6 | 前端 Token 管理（api.js 重构） | FR-20 | 2 | not-started |
-| 8.7 | 用户个人信息页（查看/修改昵称） | FR-20 | 2 | not-started |
-| 8.8 | 受邀者 auth 适配（匿名加入保留 + 登录用户自动识别） | FR-17-v2 | 2 | not-started |
+| 8.4 | JWT 认证中间件（替换 X-User-Id header） | FR-20, ARCH | 3 | done |
+| 8.5 | 前端登录/注册页面 | FR-20 | 2 | done |
+| 8.6 | 前端 Token 管理（api.js 重构） | FR-20 | 2 | done |
+| 8.7 | 用户个人信息页（查看/修改昵称） | FR-20 | 2 | done |
+| 8.8 | 受邀者 auth 适配（匿名加入保留 + 登录用户自动识别） | FR-17-v2 | 2 | done |
+| 8.9 | 导航栏用户状态区域（头像 + 用户名 + 退出入口） | FR-20 | 2 | done |
 
-**Epic 8 小计：17 pts（+ 代码清理 2pts）**
+**Epic 8 小计：19 pts（+ 代码清理 2pts）**
 
 ---
 
@@ -353,7 +354,7 @@ totalStories: 72
 - [ ] 单人转盘/扫雷功能回归测试通过，无影响
 - [ ] DB 迁移脚本可重复执行，不破坏既有数据
 
-**Sprint 4 总估点：34 pts**
+**Sprint 4 总估点：36 pts**
 
 ---
 

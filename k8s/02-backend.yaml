@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: test
+type: Opaque
+stringData:
+  DB_HOST: "rm-bp1h00xonwd32cq0avo.mysql.rds.aliyuncs.com"
+  DB_PORT: "3306"
+  DB_USER: "root"
+  DB_PASSWORD: "eTyjVYvG3EhbuCNyYX9s"
+  DB_NAME: "takeout_decision_maker"
+  SESSION_SECRET: "RFMZKqnAhxMLYmHQvTjiNTI8tGHMgilV8+eIcBYx5JA="
+  NODE_ENV: "production"
+  PORT: "3000"
+  SESSION_EXPIRE_HOURS: "24"
+  APP_BASE_URL: "https://takeout.test.huaqing.run"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend-sa
+  namespace: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: takeout-backend
+  namespace: test
+  labels:
+    app: takeout-backend
+    version: "v1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: takeout-backend
+  template:
+    metadata:
+      labels:
+        app: takeout-backend
+        version: "v1.0.0"
+    spec:
+      serviceAccountName: backend-sa
+      imagePullSecrets:
+        - name: acr-registry-secret-hq
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: backend
+          image: crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:backend-v1.0.0
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: backend-secret
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: takeout-backend
+  namespace: test
+  labels:
+    app: takeout-backend
+spec:
+  selector:
+    app: takeout-backend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

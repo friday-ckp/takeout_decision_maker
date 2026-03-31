@@ -4,7 +4,7 @@ type: architecture
 phase: 3-solutioning
 status: complete
 created: "2026-03-27"
-updated: "2026-03-27"
+updated: "2026-03-30"
 author: Friday
 project: takeout_decision_maker
 inputDocuments:
@@ -111,12 +111,16 @@ ws://host/ws/sessions/:token?nickname=<nickname>
 ```
 
 ### 事件流
+
+> ⚠️ **2026-03-30 更新**：移除游戏模式事件（cell_clicked / spin_submitted），改为投票事件。
+
 ```
-客户端加入 → session_state 推送
-有人加入   → participant_joined 广播
-Host 开始  → deciding_started 广播（含候选快照）
-点击格子   → cell_clicked → result_revealed 广播
-Host 确认  → session_done 广播 → 会话结束
+客户端加入     → session_state 推送（含 candidateSnapshot + deadlineAt）
+有人加入       → participant_joined 广播
+Host 开始      → deciding_started 广播（含候选快照 + deadlineAt）
+参与者投票     → vote_submitted → vote_updated 广播（实时票数）
+截止/全员投票  → vote_result 广播（winner + allVotes + isTie）
+Host 确认      → session_done 广播 → 会话结束
 ```
 
 ### 多人状态机
@@ -126,14 +130,46 @@ waiting → deciding → done
            (replay)
 ```
 
+> 注：`deciding_locked` 状态（原扫雷先到先得锁定）已移除，投票模式不需要。
+
 ---
 
 ## 关键技术决策
 
-### 1. 单用户 vs 多用户
-- 单用户默认 `user_id=1`，无需登录
-- 多人临时用户通过昵称创建，会话过期后惰性清理
-- **昵称存储机制**：受邀者加入会话时，后端在 `users` 表创建一条临时记录，`users.name` 字段存储用户输入的昵称；`session_participants` 表通过 `user_id` 关联该临时用户记录，**不额外存储 nickname 字段**。等待室显示昵称时，JOIN `users` 表取 `name` 字段即可。
+### 1. 用户身份与认证
+
+> ⚠️ **2026-03-30 更新**：引入注册/登录体系，JWT 替换 X-User-Id header。
+
+**注册用户（is_temp=false）：**
+- 通过邮箱+密码注册，bcrypt hash 密码存储
+- 登录后获取 JWT（payload: userId，有效期7天）
+- 所有受保护 API 使用 `Authorization: Bearer <token>` 认证
+- 前端 api.js 统一注入 token，401 响应自动跳转 /login
+
+**临时用户（is_temp=true）：**
+- 受邀者通过昵称加入多人会话，保留无注册低门槛
+- users 表新增 `is_temp` 字段区分；临时用户清理策略不变（惰性7天）
+
+**数据库变更（迁移脚本，不重建）：**
+```sql
+-- users 表新增字段
+ALTER TABLE users ADD COLUMN email VARCHAR(100) UNIQUE NULL;
+ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NULL;
+ALTER TABLE users ADD COLUMN is_temp BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN updated_at DATETIME;
+
+-- decision_sessions 表字段变更
+ALTER TABLE decision_sessions DROP COLUMN mode;
+ALTER TABLE decision_sessions ADD COLUMN deadline_at DATETIME;
+
+-- decision_history 扩展 mode 枚举
+ALTER TABLE decision_history MODIFY COLUMN mode ENUM('wheel','minesweeper','vote');
+```
+
+**环境变量新增：**
+```
+JWT_SECRET=your-secret-key-here
+```
 
 ### 2. 收藏 2 倍权重实现
 - 转盘：候选列表中收藏餐厅出现 2 次（双份扇形）
@@ -144,9 +180,10 @@ waiting → deciding → done
 - 跨日重置 replay_count：发起决策请求时检查 daily_config.date
 - 临时用户清理：任意 API 请求时异步后台执行
 
-### 4. 多人候选快照
-- 会话创建时快照发起人候选餐厅 ID 列表
-- 后续决策以快照为准，隔离发起人数据变更
+### 4. 多人候选快照（更新）
+- 会话创建时快照**发起人手动选定**的餐厅列表（非全量）
+- 后续投票以快照为准，隔离发起人数据变更
+- 快照格式：`[{id, name, category}, ...]`（不再含权重展开）
 
 ---
 

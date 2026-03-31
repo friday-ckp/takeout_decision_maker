@@ -1166,7 +1166,13 @@ So that 转盘/扫雷候选池自动过滤。
 
 ## Epic 6: 多人实时协作决策
 
-用户能邀请朋友通过分享链接加入会话，实时一起做决策。
+用户能邀请朋友通过分享链接加入会话，实时一起**投票**决定吃什么。
+
+> ⚠️ **2026-03-30 Sprint Change Proposal 更新：**
+> - 多人决策模式从「转盘/扫雷游戏」改为「公平投票」机制
+> - Story 6.9（多人转盘）/ Story 6.10（多人扫雷）已废弃，Sprint 4 清理
+> - Story 6.2 / 6.3 / 6.8 / 6.11 重写，新增 Story 6.9-new / 6.10-new
+> - 变更详情：sprint-change-proposal-2026-03-30.md
 
 ### Story 6.1: WebSocket 服务器骨架
 
@@ -1207,12 +1213,22 @@ So that 可以邀请朋友加入一起决策。
 
 **Acceptance Criteria:**
 
-**Given** 发起人有 ≥ 2 家候选餐厅
-**When** `POST /api/sessions {mode:"wheel"}`
-**Then** 返回 201，含 `{shareToken, expiresAt, sessionId}`
-**And** 将**展开后的权重数组**存入 `decision_sessions.candidate_snapshot`：收藏餐厅出现2次，普通餐厅出现1次，格式为 `[{id, name, category}, {id, name, category}, ...]`（收藏餐厅的两条记录相邻排列）
-**And** 快照数组的下标与 Story 6.9 的 `resultIndex` 直接对应，客户端无需再次展开
-**And** 在 `session_participants` 表插入发起人记录（role='host'，关联 user_id=1）
+> ⚠️ **v2 重写（Sprint 4）**：原 mode 参数已移除，改为自选餐厅 + 截止时间。
+
+**Given** 发起人选择了 selectedRestaurantIds（2~20 家，均属发起人餐厅库）和 deadlineAt
+**When** `POST /api/sessions {selectedRestaurantIds:[1,2,3], deadlineAt:"2026-03-30T18:00:00Z"}`
+**Then** 返回 201，含 `{shareToken, expiresAt, sessionId, deadlineAt}`
+**And** 将选定餐厅列表存入 `decision_sessions.candidate_snapshot`，格式为 `[{id, name, category}, ...]`
+**And** 在 `session_participants` 表插入发起人记录（role='host'）
+**And** `decision_sessions` 表写入 `deadline_at` 字段
+
+**Given** selectedRestaurantIds 少于 2 家
+**When** 调用创建接口
+**Then** 返回 400，`{code:40002, message:"至少选择2家餐厅"}`
+
+**Given** deadlineAt 早于当前时间
+**When** 调用创建接口
+**Then** 返回 400，`{code:40003, message:"截止时间必须晚于当前时间"}`
 
 **Given** 会话创建后调用 `GET /api/sessions/:token/state`
 **When** 查询参与者列表
@@ -1232,15 +1248,25 @@ So that 方便通过微信/其他渠道发给朋友。
 
 **Acceptance Criteria:**
 
-**Given** 模式选择页底部「邀请朋友一起选」入口
-**When** 点击（Epic 6 实现后激活）
-**Then** 弹出多人模式选择卡片，选择转盘或扫雷后调用创建会话 API
+> ⚠️ **v2 重写（Sprint 4）**：移除模式选择卡片，改为餐厅勾选 + 截止时间设置。
+
+**Given** 模式选择页「发起投票」入口
+**When** 点击
+**Then** 进入餐厅勾选页，展示发起人全部餐厅列表（默认全选），顶部显示已选数量
+
+**Given** 发起人勾选 2~20 家餐厅
+**When** 勾选数 < 2
+**Then** 「创建投票」按钮置灰，提示"至少选择2家餐厅"
+
+**Given** 发起人勾选完成
+**When** 设置截止时间（默认今天 20:00，可修改）并点击「创建投票」
+**Then** 调用创建会话 API，成功后显示分享链接
 
 **Given** 会话创建成功
 **When** 获得 shareToken
-**Then** 显示链接 `{BASE_URL}/session/{shareToken}/lobby`，其中 BASE_URL 取自 `.env` 中的 `APP_BASE_URL` 配置项（默认 `http://localhost:3000`，生产部署时应替换为实际域名）
+**Then** 显示链接 `{BASE_URL}/session/{shareToken}/lobby`
 **And** 提供「一键复制」按钮，点击后 toast 提示"链接已复制"
-**And** 链接文字可点击，点击后在新标签页打开（用于发起人自测）
+**And** 链接文字可点击，新标签页打开
 
 ---
 
@@ -1355,11 +1381,11 @@ So that 多人可以同步参与转盘/扫雷。
 
 ---
 
-### Story 6.9: 多人转盘 — 随机投票机制（FR-19）
+### ~~Story 6.9: 多人转盘 — 随机投票机制（FR-19）~~ 【已废弃】
 
-> ⚠️ 本 Story 已于 2026-03-30 替换原「同步控制」方案。原方案仅发起人可触发，参与者体验被动；新方案改为每人独立转盘投票，结果取最高票，真正实现多人参与决策。
+> ❌ **2026-03-30 废弃**：多人游戏化模式移除，替换为公平投票机制（Story 6.9-new）。Sprint 4 执行代码清理。
 
-As a 多人会话参与者,
+~~As a 多人会话参与者,~~
 I want 各自独立转动转盘并投票，票数最多的餐厅胜出,
 So that 每个人都真正参与了决策，而不只是旁观。
 
@@ -1403,11 +1429,13 @@ So that 每个人都真正参与了决策，而不只是旁观。
 
 ---
 
-### Story 6.10: 多人扫雷 — 先到先得（FR-19）
+### ~~Story 6.10: 多人扫雷 — 先到先得（FR-19）~~ 【已废弃】
 
-As a 多人会话参与者,
-I want 任意人都能点击格子，第一个点击者决定结果,
-So that 扫雷有公平的竞争感。
+> ❌ **2026-03-30 废弃**：多人扫雷模式移除，替换为公平投票机制（Story 6.10-new）。Sprint 4 执行代码清理。
+
+~~As a 多人会话参与者,~~
+~~I want 任意人都能点击格子，第一个点击者决定结果,~~
+~~So that 扫雷有公平的竞争感。~~
 
 **Acceptance Criteria:**
 
@@ -1439,28 +1467,107 @@ So that 决策权在发起人手中。
 
 **Acceptance Criteria:**
 
-**Given** 结果揭晓后
+> ⚠️ **v2 重写（Sprint 4）**：基于投票结果展示，移除游戏揭晓动效。
+
+**Given** 投票结果揭晓后
 **When** 所有参与者跳转至结果页
-**Then** 发起人看到「就这家了！」和「换一个」按钮
+**Then** 最高票餐厅大字居中显示
+**And** 展示完整票数分布（每家餐厅 + 得票数）
+**And** 发起人看到「就这家了！」和「重新投票」按钮
 **And** 其他参与者看到"等待发起人确认..."的等待状态
+
+**Given** 平局（多家餐厅并列最高票）
+**When** 结果揭晓
+**Then** 系统随机选一家，显示"平局！系统随机选择了 XXX"
 
 **Given** 发起人点击「就这家了！」
 **When** `POST /api/sessions/:token/confirm`
-**Then** 在单个数据库事务中写入所有参与者（含发起人）的 decision_history 记录（mode='wheel'或'minesweeper'，decided_at=当前时间）
+**Then** 在单个数据库事务中写入所有参与者（含发起人）的 decision_history 记录（mode='vote'，decided_at=当前时间）
 **And** 会话 status 变为 done
 **And** 广播 `{event:"session_done", data:{resultRestaurantId, resultRestaurantName}}`
 **And** 所有参与者自动跳转至会话结束页
 
-**Given** decision_history 批量写入事务失败（如数据库异常）
+**Given** decision_history 批量写入事务失败
 **When** confirm API 处理
 **Then** 事务回滚，返回 500，会话状态不变为 done，前端提示"确认失败，请重试"
 
-**Given** 发起人点击「换一个」
+**Given** 发起人点击「重新投票」
 **When** `POST /api/sessions/:token/replay`
-**Then** 服务端使用**发起人（host）的 daily_config** 记录扣减 replay_count（临时受邀用户无重玩限制概念，不使用其 daily_config）
-**And** 服务端广播 `{event:"replay_initiated", data:{remainingReplays}}`
-**And** 所有参与者自动返回多人决策界面：扫雷模式重置全部格子为背面朝上，转盘模式重置为初始静止状态
-**And** 若 replay_count 已达上限，返回 400，不广播，发起人侧「换一个」置灰
+**Then** 使用发起人 daily_config 扣减 replay_count
+**And** 广播 `{event:"replay_initiated", data:{remainingReplays}}`
+**And** 所有参与者返回投票页，清空上一轮选票
+**And** 若 replay_count 已达上限，返回 400，不广播，「重新投票」置灰
+
+---
+
+### Story 6.9-new: 投票机制 API + WebSocket 事件（FR-19-v2）
+
+> 🆕 **Sprint 4 新增**：替代废弃的 Story 6.9（多人转盘）。
+
+As a 多人会话参与者,
+I want 提交我的餐厅选票并看到实时进度,
+So that 每个人的偏好都能被公平统计。
+
+**Acceptance Criteria:**
+
+**Given** 会话处于 deciding 状态，参与者已进入投票页
+**When** `POST /api/sessions/:token/vote {restaurantId, restaurantName}`
+**Then** 记录该用户本轮投票（每人仅1票，重复提交覆盖旧票）
+**And** 广播 `{event:"vote_updated", data:{votes:[{restaurantId, restaurantName, count}], totalVoters, votedCount}}`
+
+**Given** 所有参与者均已投票
+**When** 最后一票提交
+**Then** 自动触发结果统计，广播 `{event:"vote_result", data:{winner:{restaurantId, restaurantName, count}, allVotes, isTie}}`
+
+**Given** 截止时间到达（deadline_at）
+**When** 服务端检测到时间过期（发起人调用 `POST /api/sessions/:token/close-vote` 或系统检测）
+**Then** 统计当前票数（包含 0 票餐厅），广播 vote_result
+**And** 若无人投票，广播 `{event:"no_votes"}`，提示"无人投票，请重试"
+
+**Given** 投票平局
+**When** vote_result 触发
+**Then** `isTie: true`，`winner` 为随机选择的餐厅之一
+
+**Given** `GET /api/sessions/:token/votes`
+**When** 任意时刻调用
+**Then** 返回当前实时票数数组
+
+---
+
+### Story 6.10-new: 投票前端页面（FR-19-v2）
+
+> 🆕 **Sprint 4 新增**：替代废弃的 Story 6.10（多人扫雷）。
+
+As a 多人会话参与者,
+I want 在清晰的投票界面选择我中意的餐厅并实时看到票数,
+So that 投票过程公开透明，结果令人信服。
+
+**Acceptance Criteria:**
+
+**Given** 收到 deciding_started 广播后
+**When** 进入 `/session/:token/decide`
+**Then** 展示候选餐厅列表（来自 candidateSnapshot），每家餐厅一行，可点击选中（高亮）
+
+**Given** 参与者点选一家餐厅
+**When** 提交
+**Then** 按钮状态变为"已投票 ✓"，不可修改
+**And** 页面顶部显示进度"X/N 人已投票"
+
+**Given** 收到 vote_updated 广播
+**When** 任意时刻
+**Then** 实时刷新票数显示（每家餐厅右侧显示当前票数）
+
+**Given** 页面顶部显示截止时间倒计时
+**When** 剩余 < 1 分钟
+**Then** 倒计时变为红色提醒
+
+**Given** 发起人额外看到「结束投票」按钮
+**When** 点击
+**Then** 调用 close-vote API，立即触发结果统计
+
+**Given** 收到 vote_result 广播
+**When** 结果揭晓
+**Then** 跳转至 Story 6.11 结果页，展示最高票餐厅 + 完整票数分布
 
 ---
 
@@ -1639,6 +1746,210 @@ So that 不需要阅读文档就能在1分钟内完成初始化。
 
 ---
 
+---
+
+## Epic 8: 用户注册与登录
+
+> 🆕 **Sprint 4 新增**（sprint-change-proposal-2026-03-30.md）
+> 引入用户身份体系，支持真实多用户场景，每位用户拥有独立的餐厅库和历史记录。
+
+**FRs covered:** FR-20（新增）
+
+### Story 8.1: 数据库迁移 — 用户认证字段
+
+As a 开发者,
+I want 最小化迁移现有数据库以支持认证，
+So that 历史数据不丢失，新功能顺利上线。
+
+**Acceptance Criteria:**
+
+**Given** 执行迁移脚本 `node migrations/add-auth-fields.js`
+**When** 脚本运行
+**Then** users 表新增字段：`email VARCHAR(100) UNIQUE NULL`, `password_hash VARCHAR(255) NULL`, `is_temp BOOLEAN DEFAULT FALSE`, `updated_at DATETIME`
+**And** decision_sessions 表：移除 `mode` 列，新增 `deadline_at DATETIME`
+**And** decision_history 表：`mode` ENUM 新增 `'vote'` 值
+**And** 脚本可重复执行（使用 IF NOT EXISTS 或 MODIFY 兼容）
+
+**Given** 迁移完成后
+**When** 查询既有 users 记录（含 is_temp=false 的默认用户）
+**Then** 记录完整保留，新字段为 NULL
+
+---
+
+### Story 8.2: 注册 API
+
+As a 新用户,
+I want 通过邮箱和密码注册账号，
+So that 我能拥有自己独立的餐厅库和决策历史。
+
+**Acceptance Criteria:**
+
+**Given** 合法的 name、email、password（≥8位）
+**When** `POST /api/auth/register {name, email, password}`
+**Then** bcrypt hash 密码，写入 users 表（is_temp=false）
+**And** 返回 201，`{userId, name, email, token（JWT，7天有效期）}`
+
+**Given** email 已被注册
+**When** 调用注册接口
+**Then** 返回 409，`{code:40901, message:"邮箱已被注册"}`
+
+**Given** 密码少于8位或 email 格式不合法
+**When** 调用注册接口
+**Then** 返回 400，明确提示哪个字段不合法
+
+---
+
+### Story 8.3: 登录 API
+
+As a 已注册用户,
+I want 通过邮箱密码登录，
+So that 我能继续使用我的餐厅库和历史记录。
+
+**Acceptance Criteria:**
+
+**Given** 正确的 email + password
+**When** `POST /api/auth/login {email, password}`
+**Then** bcrypt.compare 验证，通过后返回 `{token（JWT）, userId, name}`
+
+**Given** 密码错误或用户不存在
+**When** 调用登录接口
+**Then** 返回 401，`{code:40101, message:"邮箱或密码错误"}`（不区分哪个错，防止枚举）
+
+---
+
+### Story 8.4: JWT 认证中间件（替换 X-User-Id）
+
+As a 开发者,
+I want 所有需要身份的 API 统一用 JWT 认证，
+So that 系统安全性提升，多用户场景正确运行。
+
+**Acceptance Criteria:**
+
+**Given** 请求头携带 `Authorization: Bearer <valid_token>`
+**When** 访问受保护 API
+**Then** 中间件解析 JWT，设置 `req.userId`，请求正常处理
+
+**Given** token 不存在或格式错误
+**When** 访问受保护 API
+**Then** 返回 401，`{code:40101, message:"未登录"}`
+
+**Given** token 已过期
+**When** 访问受保护 API
+**Then** 返回 401，`{code:40102, message:"登录已过期，请重新登录"}`
+
+**Given** `.env.example` 更新
+**When** 查看示例
+**Then** 包含 `JWT_SECRET=your-secret-key-here`
+
+---
+
+### Story 8.5: 前端登录/注册页面
+
+As a 用户,
+I want 通过登录/注册页面完成身份认证，
+So that 我能安全地访问自己的数据。
+
+**Acceptance Criteria:**
+
+**Given** 访问 `/login`
+**When** 页面加载
+**Then** 显示邮箱 + 密码输入框，「登录」按钮，「去注册」链接
+
+**Given** 登录成功
+**When** API 返回 token
+**Then** token 存入 localStorage('authToken')，跳转首页
+
+**Given** 未登录用户访问受保护页面（餐厅列表、决策等）
+**When** 页面初始化检测 token
+**Then** 重定向 `/login`
+
+**Given** 顶部导航
+**When** 已登录
+**Then** 显示用户名 + 「退出」按钮；点击退出清除 localStorage，跳转 `/login`
+
+---
+
+### Story 8.6: 前端 Token 管理（api.js 重构）
+
+As a 开发者,
+I want 所有前端 API 请求自动注入 JWT，
+So that 调用方无需关心认证细节。
+
+**Acceptance Criteria:**
+
+**Given** 用户已登录（localStorage 有 authToken）
+**When** 调用任意 `apiFetch()` 请求
+**Then** 请求头自动包含 `Authorization: Bearer <token>`，不再硬编码 X-User-Id
+
+**Given** API 返回 401
+**When** 响应拦截器检测
+**Then** 自动清除 localStorage token，重定向 `/login`
+
+---
+
+### Story 8.7: 用户个人信息页
+
+As a 已登录用户,
+I want 查看和修改我的个人信息，
+So that 我能管理自己的账户。
+
+**Acceptance Criteria:**
+
+**Given** 访问 `/profile`
+**When** 已登录
+**Then** 显示用户名、邮箱（不可修改）
+**And** 可修改昵称（name 字段），提交后调用 `PATCH /api/users/me`
+
+**Given** `PATCH /api/users/me {name}`
+**When** 调用 API
+**Then** 更新 users.name，返回更新后的用户信息
+
+---
+
+### Story 8.8: 受邀者匿名加入适配（FR-17-v2）
+
+As a 受邀者,
+I want 仍可用昵称免注册加入投票，
+So that 参与门槛最低。
+
+**Acceptance Criteria:**
+
+**Given** 受邀者通过分享链接访问 `/session/:token/lobby`
+**When** 输入昵称加入（未登录）
+**Then** 后端创建 is_temp=true 的临时用户，流程与 Story 6.4 保持一致
+
+**Given** 已登录用户通过分享链接访问
+**When** 系统检测 localStorage 有 authToken
+**Then** 跳过昵称输入，自动用真实账户昵称加入，role='guest'
+
+**Epic 8 总 Stories：8 个，覆盖 FR-20 ✅**
+
+---
+
+### Story 8.9: 导航栏用户状态区域
+
+As a 已登录用户,
+I want 在顶部导航栏看到我的头像、用户名，并能一键退出，
+So that 我能随时确认登录身份并安全退出。
+
+**Acceptance Criteria:**
+
+**Given** 已登录用户访问任意受保护页面
+**When** 页面加载
+**Then** 顶部导航栏右侧显示默认头像（灰色圆形 + 用户名首字母）、用户名文字、「退出」按钮
+
+**Given** 用户点击「退出」按钮
+**When** 点击事件触发
+**Then** 清除 localStorage 的 authToken 和 userName，跳转 /login
+
+**Given** 顶部导航
+**When** 用户未登录
+**Then** 显示「登录」入口链接，不显示头像/用户名区域
+
+估点：2 pts
+
+---
+
 ## 汇总
 
 | Epic | 名称 | Stories数 | 覆盖需求 |
@@ -1648,7 +1959,8 @@ So that 不需要阅读文档就能在1分钟内完成初始化。
 | Epic 3 | 扫雷决策流程 | 4 | FR-04, FR-15（扫雷）|
 | Epic 4 | 个性化设置 | 2 | FR-14 |
 | Epic 5 | 历史沉淀与智能过滤 | 6 | FR-10~13 |
-| Epic 6 | 多人实时协作决策 | 12 | FR-16~19 |
+| Epic 6 | 多人实时协作决策（投票版） | 14 | FR-16~19-v2（含 2 废弃 + 2 新增） |
 | Epic 7 | 上线就绪与质量打磨 | 7 | NFR-01~10 |
-| **合计** | | **58 个 Stories** | **所有 FR/NFR/ARCH ✅** |
+| **Epic 8（新）** | **用户注册与登录** | **9** | **FR-20** |
+| **合计** | | **69 个 Stories** | **所有 FR/NFR/ARCH ✅** |
 

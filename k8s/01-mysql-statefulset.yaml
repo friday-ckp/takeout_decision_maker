@@ -1,0 +1,109 @@
+# ⚠️ 敏感配置通过 Nacos 管理，请勿在此文件中填写真实密码
+# Nacos 配置中心：http://nacos.test.huaqing.run
+# 部署前请执行 kubectl 命令注入 Secret（见 DEPLOY.md）
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: takeout
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: "REPLACE_FROM_NACOS"   # Nacos key: MYSQL_ROOT_PASSWORD
+  MYSQL_PASSWORD: "REPLACE_FROM_NACOS"         # Nacos key: MYSQL_PASSWORD（与 DB_PASSWORD 相同）
+  MYSQL_USER: "takeout_user"
+  MYSQL_DATABASE: "takeout_decision"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: takeout
+  labels:
+    app: mysql
+spec:
+  clusterIP: None   # Headless Service for StatefulSet
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: takeout
+  labels:
+    app: mysql
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      serviceAccountName: mysql-sa
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_PASSWORD
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "127.0.0.1"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

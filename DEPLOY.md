@@ -4,6 +4,116 @@
 
 ---
 
+## Kubernetes 部署（推荐）
+
+### 配置管理说明
+
+敏感配置统一在 Nacos 维护：**http://nacos.test.huaqing.run**
+Namespace: `local_ckp`，Group: `DEFAULT_GROUP`
+
+| Nacos Key | 说明 |
+|-----------|------|
+| `MYSQL_ROOT_PASSWORD` | MySQL root 密码 |
+| `MYSQL_PASSWORD` / `DB_PASSWORD` | 应用连接 MySQL 的密码（两处必须相同） |
+| `SESSION_SECRET` | 32位随机签名密钥（生成命令见下方） |
+
+生成 SESSION_SECRET：
+
+```bash
+openssl rand -base64 32
+# 或
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### 第一步：注入 Secret（从 Nacos 取值替换）
+
+```bash
+# 先在 Nacos 取得实际密码，再执行：
+
+# MySQL Secret
+kubectl create secret generic mysql-secret \
+  --namespace=takeout \
+  --from-literal=MYSQL_ROOT_PASSWORD='<从Nacos取值>' \
+  --from-literal=MYSQL_PASSWORD='<从Nacos取值>' \
+  --from-literal=MYSQL_USER='takeout_user' \
+  --from-literal=MYSQL_DATABASE='takeout_decision' \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Backend Secret
+kubectl create secret generic backend-secret \
+  --namespace=takeout \
+  --from-literal=DB_HOST='mysql.takeout.svc.cluster.local' \
+  --from-literal=DB_PORT='3306' \
+  --from-literal=DB_USER='takeout_user' \
+  --from-literal=DB_PASSWORD='<从Nacos取值>' \
+  --from-literal=DB_NAME='takeout_decision' \
+  --from-literal=SESSION_SECRET='<从Nacos取值>' \
+  --from-literal=NODE_ENV='production' \
+  --from-literal=PORT='3000' \
+  --from-literal=SESSION_EXPIRE_HOURS='24' \
+  --from-literal=APP_BASE_URL='https://takeout.test.huaqing.run' \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### 第二步：推送镜像
+
+```bash
+# 登录阿里云镜像仓库
+docker login crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com
+
+# 构建并推送 backend
+cd takeout_decision_maker/backend
+docker build -t crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:backend-1.0.0 .
+docker push crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:backend-1.0.0
+
+# 构建并推送 frontend
+cd ../frontend
+docker build -t crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:frontend-1.0.0 .
+docker push crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:frontend-1.0.0
+```
+
+### 第三步：部署到 k8s
+
+```bash
+cd takeout_decision_maker/k8s
+
+# 按顺序部署（⚠️ Secret 需要在第一步手动注入，这里跳过 01/02 中的 Secret 部分）
+kubectl apply -f 00-namespace.yaml
+kubectl apply -f 05-rbac-network.yaml
+kubectl apply -f 01-mysql-statefulset.yaml   # 确保已手动注入 mysql-secret
+kubectl apply -f 02-backend.yaml             # 确保已手动注入 backend-secret
+kubectl apply -f 03-frontend.yaml
+kubectl apply -f 04-ingress.yaml
+```
+
+### 第四步：验证部署
+
+```bash
+# 监控 Pod 启动
+kubectl get pods -n takeout -w
+
+# 检查 rollout 状态
+kubectl rollout status deployment/backend -n takeout
+kubectl rollout status deployment/frontend -n takeout
+
+# 健康检查
+curl http://takeout.test.huaqing.run/health
+```
+
+### 更新部署（改了镜像后）
+
+```bash
+kubectl set image deployment/backend \
+  backend=crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:backend-<新版本> \
+  -n takeout
+
+kubectl set image deployment/frontend \
+  frontend=crpi-dgkl9khr1943eg60.cn-hangzhou.personal.cr.aliyuncs.com/hq-service/takeout_decision_maker:frontend-<新版本> \
+  -n takeout
+```
+
+---
+
 ## 系统要求
 
 | 组件 | 最低版本 | 推荐版本 |

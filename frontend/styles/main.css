@@ -99,6 +99,8 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* ════════════════════════════════════════
@@ -402,6 +404,9 @@ textarea { resize: vertical; }
   .topnav__links { gap: 4px; }
   .topnav__link  { font-size: 12px; padding: 4px 8px; }
   .topnav__right { gap: 6px; }
+  #btn-open-add span { display: none; }   /* 小屏只显示 + 图标 */
+  .mood-chip-nav { display: none; }       /* 小屏隐藏心情按钮 */
+  .nav-username { max-width: 60px; }
 
   /* 内容边距 */
   .content-wrap { padding: var(--spacing-lg) var(--content-padding); }
