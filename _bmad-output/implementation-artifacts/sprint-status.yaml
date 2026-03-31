@@ -156,7 +156,7 @@ development_status:
   # ─────────────────────────────────────────────
   epic-8: in-progress
   8-1-auth-db-migration: done
-  8-2-register-api: backlog
+  8-2-register-api: done
   8-3-login-api: backlog
   8-4-jwt-middleware: backlog
   8-5-login-register-page: backlog
