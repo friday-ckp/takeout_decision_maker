@@ -2,16 +2,17 @@
 title: "Sprint Plan: takeout_decision_maker"
 type: sprint-status
 phase: 4-implementation
-status: ready
-version: "1.0"
+status: active
+version: "1.1"
 created: "2026-03-27"
-updated: "2026-03-27"
+updated: "2026-03-31"
 author: Friday
 project: takeout_decision_maker
 inputDocuments:
   - _bmad-output/planning-artifacts/prd-takeout_decision_maker.md
   - _bmad-output/planning-artifacts/architecture-takeout_decision_maker.md
   - _bmad-output/planning-artifacts/epics-takeout_decision_maker.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-03-30.md
 sprints:
   - id: sprint-1
     status: done
@@ -25,12 +26,16 @@ sprints:
     status: done
     points: 34
     stories: 19
-totalPoints: 107
-totalStories: 58
+  - id: sprint-4
+    status: in-progress
+    points: 34
+    stories: 14
+totalPoints: 141
+totalStories: 72
 ---
 
 # 外卖点餐决策器 Sprint 计划
-> 基于 PRD v0.5 | 制定日期：2026-03-27
+> 基于 PRD v0.6 | 制定日期：2026-03-27 | 更新：2026-03-30（Sprint Change Proposal 批准）
 
 ---
 
@@ -41,11 +46,12 @@ totalStories: 58
 | Sprint 1 | W1–W2（2周） | 单人转盘决策完整链路 | Epic 1（1.1~1.9）+ Epic 2（2.1~2.9） | 18 个 | 35 pts |
 | Sprint 2 | W3–W4（2周） | 扫雷 + 餐厅管理 + 历史过滤 + 设置 | Epic 1（1.10~1.18）+ Epic 3~5 | 21 个 | 38 pts |
 | Sprint 3 | W5–W6（2周） | 多人实时协作 + 打磨上线 | Epic 6~7 | 19 个 | 34 pts |
+| **Sprint 4** | **W7–W8（2周）** | **多人投票重设计 + 用户注册/登录** | **Epic 6（重设计）+ Epic 8（新）** | **14 个** | **34 pts** |
 
-**总故事点：107 pts ｜ 总 Stories：58 个**
+**总故事点：141 pts ｜ 总 Stories：72 个**（含 Sprint 4 新增，Sprint 3 中 6.9/6.10 已废弃）
 
 > 详细 Epic / Story 拆解见：[epics-takeout_decision_maker.md](../_bmad-output/planning-artifacts/epics-takeout_decision_maker.md)
-> 本 Sprint 计划共 **58 个可执行 Story**，分布如下表。
+> 变更说明见：[sprint-change-proposal-2026-03-30.md](sprint-change-proposal-2026-03-30.md)
 
 ---
 
@@ -59,9 +65,11 @@ totalStories: 58
 | Epic 3（3.1~3.4） | Sprint 2 | 4 个 | 扫雷决策流程 |
 | Epic 4（4.1~4.2） | Sprint 2 | 2 个 | 个性化设置 |
 | Epic 5（5.1~5.6） | Sprint 2 | 6 个 | 历史沉淀与智能过滤 |
-| Epic 6（6.1~6.12） | Sprint 3 | 12 个 | 多人实时协作决策 |
+| Epic 6（6.1~6.12） | Sprint 3 | 12 个 | 多人实时协作（含 6.9/6.10 已废弃） |
 | Epic 7（7.1~7.7） | Sprint 3 | 7 个 | 上线就绪与质量打磨 |
-| **合计** | | **58 个** | |
+| **Epic 6（重设计部分）** | **Sprint 4** | **6 个** | **6.2/6.3/6.8/6.11 重写 + 6.9-new/6.10-new 新增** |
+| **Epic 8（新增）** | **Sprint 4** | **8 个** | **用户注册/登录（8.1~8.8）** |
+| **合计** | | **72 个** | |
 
 ---
 
@@ -238,8 +246,8 @@ totalStories: 58
 | 6.6 | 等待室实时参与者列表 | FR-18, UX-DR7 | 2 | done |
 | 6.7 | WS 等待室事件（participant_joined / session_state） | FR-18 | 2 | done |
 | 6.8 | 开始决策广播（deciding_started） | FR-19 | 2 | done |
-| 6.9 | 多人转盘 — 随机投票机制（V2） | FR-19 | 3 | done |
-| 6.10 | 多人扫雷 — 先到先得 | FR-19 | 3 | done |
+| ~~6.9~~ | ~~多人转盘 — 随机投票机制~~ | ~~FR-19~~ | ~~3~~ | ~~废弃~~ (Sprint 4 清理) |
+| ~~6.10~~ | ~~多人扫雷 — 先到先得~~ | ~~FR-19~~ | ~~3~~ | ~~废弃~~ (Sprint 4 清理) |
 | 6.11 | 多人结果页与会话确认 | FR-19, FR-15 | 2 | done |
 | 6.12 | WebSocket 断线重连 | NFR-05 | 2 | done |
 
@@ -276,6 +284,79 @@ totalStories: 58
 
 ---
 
+## Sprint 4：多人投票重设计 + 用户认证
+
+**周期：** 2026-05-11 ~ 2026-05-22（2周）
+**状态：** in-progress
+**变更来源：** sprint-change-proposal-2026-03-30.md（已批准）
+
+### Sprint 目标
+
+重设计多人决策为公平投票机制（每人一票，票多者胜），并引入用户注册/登录体系，支持真实多用户场景（如公司团建投票选餐厅）。
+
+---
+
+### Story 列表
+
+> 完整验收标准（Given/When/Then）见：[epics-takeout_decision_maker.md](../planning-artifacts/epics-takeout_decision_maker.md)
+
+#### Epic 6：多人协作决策（重设计部分）
+
+**Phase 1：代码清理（前置）**
+
+| 动作 | 内容 | 工作量 |
+|------|------|--------|
+| 清理 6.9 代码 | 删除多人转盘前后端实现（Canvas / spin WS 事件） | 0.5天 |
+| 清理 6.10 代码 | 删除多人扫雷前后端实现（格子 UI / cell WS 事件） | 0.5天 |
+
+**Phase 2：Story 修改与新增**
+
+| Story | 标题 | 涵盖需求 | 估点 | 状态 |
+|-------|------|----------|------|------|
+| 6.2-v2 | 创建会话 API 重写（自选餐厅 + 截止时间） | FR-16-v2 | 3 | not-started |
+| 6.3-v2 | 发起投票前端（餐厅勾选 + 截止时间设置） | FR-16-v2 | 3 | not-started |
+| 6.8-v2 | 开始决策广播修改（移除 mode，加 deadlineAt） | FR-19-v2 | 1 | not-started |
+| 6.9-new | 投票 API + WS 事件（vote_submitted / vote_result） | FR-19-v2 | 3 | not-started |
+| 6.10-new | 投票前端页（候选列表 + 实时票数 + 结果页） | FR-19-v2 | 3 | not-started |
+| 6.11-v2 | 多人结果页重写（基于投票结果） | FR-19-v2, FR-15 | 2 | not-started |
+
+**Epic 6 Sprint 4 部分小计：15 pts**
+
+---
+
+#### Epic 8：用户注册与登录（全新）
+
+| Story | 标题 | 涵盖需求 | 估点 | 状态 |
+|-------|------|----------|------|------|
+| 8.1 | DB 迁移：users 表 + sessions 表 + history 表字段变更 | FR-20, ARCH | 2 | done |
+| 8.2 | 注册 API（POST /api/auth/register） | FR-20 | 2 | done |
+| 8.3 | 登录 API（POST /api/auth/login → JWT） | FR-20 | 2 | done |
+| 8.4 | JWT 认证中间件（替换 X-User-Id header） | FR-20, ARCH | 3 | not-started |
+| 8.5 | 前端登录/注册页面 | FR-20 | 2 | not-started |
+| 8.6 | 前端 Token 管理（api.js 重构） | FR-20 | 2 | not-started |
+| 8.7 | 用户个人信息页（查看/修改昵称） | FR-20 | 2 | not-started |
+| 8.8 | 受邀者 auth 适配（匿名加入保留 + 登录用户自动识别） | FR-17-v2 | 2 | not-started |
+
+**Epic 8 小计：17 pts（+ 代码清理 2pts）**
+
+---
+
+### Sprint 4 Definition of Done
+
+- [ ] 代码清理：6.9 / 6.10 多人游戏模式代码彻底删除，无残留引用
+- [ ] 多人投票：发起人可选择 2~20 家候选餐厅 + 设定截止时间创建会话
+- [ ] 多人投票：所有参与者可在截止时间前提交选票，实时看到票数进度
+- [ ] 多人投票：截止时自动公布最高票结果，平局时随机选一
+- [ ] 用户注册/登录：注册用户可登录，独立拥有餐厅库和历史记录
+- [ ] JWT 认证：所有需要身份的 API 改用 Bearer Token，X-User-Id 全面退役
+- [ ] 受邀者仍可用昵称免注册加入投票（is_temp=true 临时用户）
+- [ ] 单人转盘/扫雷功能回归测试通过，无影响
+- [ ] DB 迁移脚本可重复执行，不破坏既有数据
+
+**Sprint 4 总估点：34 pts**
+
+---
+
 ## 总体风险与依赖
 
 | 风险 | 影响 | 缓解措施 |
@@ -284,6 +365,8 @@ totalStories: 58
 | 心情/口味过滤逻辑复杂 | Sprint 2 超期 | FR-12/FR-13 可降级为纯标签过滤 |
 | 多人同步动画帧对齐 | 用户体验差 | 服务端统一 countdown + 客户端时间戳对齐 |
 | MySQL 并发写入瓶颈 | 多人房间数据竞争 | 决策结果写入加行锁或用 Redis 暂存 |
+| **JWT 迁移影响所有 API** | Sprint 4 回归范围大 | 分两阶段：先加 auth 支持，再替换 X-User-Id |
+| **DB 迁移破坏现有数据** | 历史数据丢失 | 使用 ALTER TABLE（非重建），保持向后兼容 |
 
 ---
 
