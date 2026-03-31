@@ -154,7 +154,7 @@ development_status:
   # ─────────────────────────────────────────────
   # Epic 8: 用户注册与登录（Sprint 4 全新）
   # ─────────────────────────────────────────────
-  epic-8: done
+  epic-8: in-progress
   8-1-auth-db-migration: done
   8-2-register-api: done
   8-3-login-api: done
@@ -163,4 +163,5 @@ development_status:
   8-6-token-management: done
   8-7-user-profile-page: done
   8-8-anonymous-join: done
+  8-9-nav-user-status: in-progress
   epic-8-retrospective: done
