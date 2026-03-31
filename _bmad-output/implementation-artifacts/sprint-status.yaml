@@ -129,7 +129,7 @@ development_status:
   6-5-join-nickname-page: done
   6-6-waiting-room-list: done
   6-7-ws-waiting-room-events: done
-  6-8-ws-start-broadcast: backlog        # Sprint 4 轻度修改（移除 mode，加 deadlineAt）
+  6-8-ws-start-broadcast: done           # Sprint 4 轻度修改（移除 mode，加 deadlineAt）
   6-9-multiplayer-wheel: done            # 废弃（Sprint 4 清理代码，原多人转盘）
   6-10-multiplayer-minesweeper: done     # 废弃（Sprint 4 清理代码，原多人扫雷）
   6-11-multiplayer-result-page: backlog  # Sprint 4 重写（投票结果页）
