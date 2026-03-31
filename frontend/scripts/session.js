@@ -151,10 +151,38 @@ async function createAndGoLobby(mode) {
 }
 
 // ── 进入加入流程（受邀者）─────────────────────────────────────────
-function initJoinFlow(token) {
+async function initJoinFlow(token) {
   sessionToken = token;
   isHost = false;
   document.getElementById('lobby-title').textContent = '加入决策会话';
+
+  // Story 8.8：已登录用户自动加入，跳过昵称输入
+  if (localStorage.getItem('authToken')) {
+    navigate('lobby');
+    // 显示"加入中"提示，隐藏昵称表单
+    document.getElementById('lobby-join-section')?.classList.add('hidden');
+    document.getElementById('lobby-room-section')?.classList.add('hidden');
+    const title = document.getElementById('lobby-title');
+    if (title) title.textContent = '正在加入…';
+    try {
+      const data = await api.post(`/api/sessions/${token}/join`, {});
+      sessionUserId   = data.userId;
+      sessionNickname = data.nickname || '';
+      sessionStorage.setItem(`session_${token}`, JSON.stringify({ userId: sessionUserId, nickname: sessionNickname }));
+      if (title) title.textContent = '加入决策会话';
+      showLobbyRoom();
+      connectWs();
+    } catch (e) {
+      // 自动加入失败（如会话不存在），降级显示昵称输入
+      if (title) title.textContent = '加入决策会话';
+      document.getElementById('lobby-join-section')?.classList.remove('hidden');
+      const err = document.getElementById('lobby-nickname-error');
+      if (err) { err.textContent = e.message || '加入失败'; err.classList.remove('hidden'); }
+    }
+    return;
+  }
+
+  // 未登录：显示昵称输入框
   navigate('lobby');
 }
 

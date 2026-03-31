@@ -161,6 +161,6 @@ development_status:
   8-4-jwt-middleware: done
   8-5-login-register-page: done
   8-6-token-management: done
-  8-7-user-profile-page: in-progress
-  8-8-anonymous-join: backlog
+  8-7-user-profile-page: done
+  8-8-anonymous-join: in-progress
   epic-8-retrospective: optional
