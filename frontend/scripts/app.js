@@ -10,8 +10,15 @@ function registerPage(id, { onEnter } = {}) {
 
 let currentPage = null;
 
+const PROTECTED_PAGES = ['home','restaurants','history','settings','trash','favorites','blacklist','import','decide','wheel','mine','session'];
+
 function navigate(pageId) {
   if (currentPage === pageId) return;
+
+  // Auth guard — 未登录时只允许访问 login / register
+  if (PROTECTED_PAGES.includes(pageId) && typeof checkAuth === 'function' && !checkAuth()) {
+    return;
+  }
 
   document.querySelectorAll('.app-page').forEach(el => el.classList.add('hidden'));
 
@@ -169,8 +176,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-goto-import')?.addEventListener('click', () => navigate('import'));
   document.getElementById('btn-back-restaurants-import')?.addEventListener('click', () => navigate('restaurants'));
 
-  // 初始页
-  navigate('home');
+  // Auth 页面注册（Story 8.5）
+  if (typeof initAuthPages === 'function') initAuthPages();
+  if (typeof updateNavUserState === 'function') updateNavUserState();
+
+  // 初始页：已登录 → home，未登录 → login
+  if (typeof getToken === 'function' && getToken()) {
+    navigate('home');
+  } else {
+    navigate('login');
+  }
 
   // Story 7.7: 检查数据库连接状态
   checkDbStatus();
