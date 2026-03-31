@@ -316,8 +316,8 @@ totalStories: 73
 | 6.2-v2 | 创建会话 API 重写（自选餐厅 + 截止时间） | FR-16-v2 | 3 | done |
 | 6.3-v2 | 发起投票前端（餐厅勾选 + 截止时间设置） | FR-16-v2 | 3 | done |
 | 6.8-v2 | 开始决策广播修改（移除 mode，加 deadlineAt） | FR-19-v2 | 1 | done |
-| 6.9-new | 投票 API + WS 事件（vote_submitted / vote_result） | FR-19-v2 | 3 | not-started |
-| 6.10-new | 投票前端页（候选列表 + 实时票数 + 结果页） | FR-19-v2 | 3 | not-started |
+| 6.9-new | 投票 API + WS 事件（vote_submitted / vote_result） | FR-19-v2 | 3 | done |
+| 6.10-new | 投票前端页（候选列表 + 实时票数 + 结果页） | FR-19-v2 | 3 | done |
 | 6.11-v2 | 多人结果页重写（基于投票结果） | FR-19-v2, FR-15 | 2 | not-started |
 
 **Epic 6 Sprint 4 部分小计：15 pts**

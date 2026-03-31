@@ -17,6 +17,9 @@ function escapeHtml(str) {
 let sessionToken = null;
 let sessionMode = null;        // 'wheel' | 'minesweeper' | 'vote'
 let sessionDeadlineAt = null;  // ISO 字符串，v2 投票截止时间
+let voteDeadlineTimer = null;  // 截止倒计时定时器（Story 6.10-new）
+let currentVoteResult = null;  // vote_result 完整数据，供 6.11-v2 使用
+let myVoteRestaurantId = null; // 已投票的 restaurantId（防重复提交）
 let sessionUserId = null;
 let sessionNickname = null;
 let isHost = false;
@@ -64,6 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 勾选页「全选/取消全选」
   document.getElementById('btn-vote-select-all')?.addEventListener('click', toggleSelectAll);
+
+  // 投票页按钮（Story 6.10-new）
+  document.getElementById('btn-vote-submit')?.addEventListener('click', handleVoteSubmit);
+  document.getElementById('btn-vote-close')?.addEventListener('click', handleVoteClose);
 
   // lobby 页按钮
   document.getElementById('btn-lobby-join')?.addEventListener('click', handleLobbyJoin);
@@ -466,11 +473,13 @@ function scheduleReconnect() {
 function showReconnectHint() {
   document.getElementById('lobby-reconnect-hint')?.classList.remove('hidden');
   document.getElementById('mp-reconnect-hint')?.classList.remove('hidden');
+  document.getElementById('vote-reconnect-hint')?.classList.remove('hidden');
 }
 
 function hideReconnectHint() {
   document.getElementById('lobby-reconnect-hint')?.classList.add('hidden');
   document.getElementById('mp-reconnect-hint')?.classList.add('hidden');
+  document.getElementById('vote-reconnect-hint')?.classList.add('hidden');
 }
 
 // ── 处理 WS 事件 ─────────────────────────────────────────────────
@@ -507,6 +516,15 @@ function handleWsMessage(msg) {
       break;
     case 'replay_initiated':
       onReplayInitiated(data);
+      break;
+    case 'vote_updated':
+      onVoteUpdated(data);
+      break;
+    case 'vote_result':
+      onVoteResult(data);
+      break;
+    case 'no_votes':
+      showToast(data?.message || '无人投票，请重试', 'error');
       break;
     case 'error':
       showToast(data?.message || '会话错误', 'error');
@@ -629,13 +647,185 @@ function updateStartButton(count) {
   }
 }
 
-// ── onEnterVotePage 占位（Story 6.10-new 实现）──────────────────────
+// ── 投票决策页（Story 6.10-new）──────────────────────────────────
 function onEnterVotePage() {
-  // 确保 WS 已连接（断线重连场景）
+  // 重置本轮投票状态
+  myVoteRestaurantId = null;
+
+  // 渲染候选餐厅
+  renderVoteCandidates(candidateSnapshot, {});
+
+  // 控制「结束投票」按钮可见性
+  document.getElementById('btn-vote-close')?.classList.toggle('hidden', !isHost);
+
+  // 启动截止时间倒计时
+  _startVoteDeadlineCountdown();
+
+  // 确保 WS 已连接
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     connectWs();
   }
-  // 实际 UI 由 Story 6.10-new 填充
+}
+
+function renderVoteCandidates(candidates, votesMap) {
+  const container = document.getElementById('vote-candidates-list');
+  if (!container) return;
+
+  container.innerHTML = candidates.map(r => {
+    const count = votesMap[String(r.id)] || 0;
+    const isSelected = (r.id === myVoteRestaurantId);
+    const borderColor = isSelected ? '#6366f1' : '#e0e7ff';
+    const bg = isSelected ? '#eef2ff' : '#f8f9ff';
+    return `
+      <div class="vote-candidate-item" data-rid="${r.id}" data-rname="${escapeHtml(r.name)}"
+           role="button" tabindex="0"
+           style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+                  background:${bg};border-radius:12px;border:2px solid ${borderColor};
+                  cursor:pointer;transition:all 0.15s;${isSelected ? 'box-shadow:0 0 0 3px rgba(99,102,241,0.15)' : ''}">
+        <span style="font-size:15px;font-weight:500;color:#1f2937">${escapeHtml(r.name)}</span>
+        <span class="vote-count-badge" data-rid="${r.id}"
+              style="font-size:13px;font-weight:700;color:#6366f1;background:#e0e7ff;
+                     border-radius:20px;padding:2px 10px;min-width:32px;text-align:center">${count > 0 ? count + ' 票' : ''}</span>
+      </div>`;
+  }).join('');
+
+  // 点击选中
+  container.querySelectorAll('.vote-candidate-item').forEach(el => {
+    el.addEventListener('click', () => {
+      if (myVoteRestaurantId !== null) return; // 已投票不可更改
+      const rid = parseInt(el.dataset.rid, 10);
+      const rname = el.dataset.rname;
+      selectVoteCandidate(rid, rname);
+    });
+  });
+}
+
+function selectVoteCandidate(rid, rname) {
+  if (myVoteRestaurantId !== null) return;
+
+  // 更新高亮
+  document.querySelectorAll('.vote-candidate-item').forEach(el => {
+    const isThis = parseInt(el.dataset.rid, 10) === rid;
+    el.style.background    = isThis ? '#eef2ff' : '#f8f9ff';
+    el.style.borderColor   = isThis ? '#6366f1' : '#e0e7ff';
+    el.style.boxShadow     = isThis ? '0 0 0 3px rgba(99,102,241,0.15)' : '';
+  });
+
+  // 暂存选择（未提交）
+  document.getElementById('btn-vote-submit')._pendingId   = rid;
+  document.getElementById('btn-vote-submit')._pendingName = rname;
+  document.getElementById('btn-vote-submit').disabled = false;
+}
+
+async function handleVoteSubmit() {
+  const btn = document.getElementById('btn-vote-submit');
+  const rid   = btn._pendingId;
+  const rname = btn._pendingName;
+  if (!rid || myVoteRestaurantId !== null) return;
+
+  btn.disabled = true;
+  btn.textContent = '提交中…';
+
+  try {
+    await api.post(`/api/sessions/${sessionToken}/vote`, {
+      restaurantId: rid,
+      restaurantName: rname,
+    });
+    myVoteRestaurantId = rid;
+    btn.textContent = '已投票 ✓';
+    // 锁定所有候选项
+    document.querySelectorAll('.vote-candidate-item').forEach(el => {
+      el.style.cursor = 'default';
+    });
+  } catch (e) {
+    showToast(e.message || '投票失败，请重试', 'error');
+    btn.disabled = false;
+    btn.textContent = '选好了，投票！';
+  }
+}
+
+async function handleVoteClose() {
+  const btn = document.getElementById('btn-vote-close');
+  btn.disabled = true;
+  try {
+    await api.post(`/api/sessions/${sessionToken}/close-vote`, {});
+  } catch (e) {
+    showToast(e.message || '操作失败', 'error');
+    btn.disabled = false;
+  }
+}
+
+function _startVoteDeadlineCountdown() {
+  if (voteDeadlineTimer) { clearInterval(voteDeadlineTimer); voteDeadlineTimer = null; }
+  const el = document.getElementById('vote-deadline-countdown');
+  if (!el || !sessionDeadlineAt) { if (el) el.textContent = ''; return; }
+
+  function updateCountdown() {
+    const ms = new Date(sessionDeadlineAt).getTime() - Date.now();
+    if (ms <= 0) {
+      el.textContent = '投票已截止';
+      el.style.color = '#ef4444';
+      clearInterval(voteDeadlineTimer);
+      voteDeadlineTimer = null;
+      return;
+    }
+    const totalSec = Math.ceil(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    el.textContent = h > 0
+      ? `截止：${h}:${pad(m)}:${pad(s)}`
+      : `截止：${pad(m)}:${pad(s)}`;
+    // 剩余 < 60s 变红
+    el.style.color = ms < 60000 ? '#ef4444' : '#6b7280';
+  }
+
+  updateCountdown();
+  voteDeadlineTimer = setInterval(updateCountdown, 1000);
+}
+
+// ── vote_updated：实时更新票数 ────────────────────────────────────
+function onVoteUpdated(data) {
+  const { votes = [], totalVoters = 0, votedCount = 0 } = data;
+
+  // 更新进度文字
+  const progressEl = document.getElementById('vote-progress-text');
+  if (progressEl) progressEl.textContent = `${votedCount} / ${totalVoters} 人已投票`;
+
+  // 更新每个候选项的票数徽章
+  const votesMap = {};
+  votes.forEach(v => { votesMap[String(v.restaurantId)] = v.count; });
+
+  document.querySelectorAll('.vote-count-badge').forEach(badge => {
+    const rid = badge.dataset.rid;
+    const count = votesMap[rid] || 0;
+    badge.textContent = count > 0 ? count + ' 票' : '';
+  });
+}
+
+// ── vote_result：结果揭晓，跳转结果页 ────────────────────────────
+function onVoteResult(data) {
+  if (voteDeadlineTimer) { clearInterval(voteDeadlineTimer); voteDeadlineTimer = null; }
+
+  const { winner, allVotes = [], isTie } = data;
+  currentVoteResult = data;
+  currentResult = {
+    resultRestaurantId:   winner.restaurantId,
+    resultRestaurantName: winner.restaurantName,
+  };
+
+  // 将 vote allVotes 转换为 navigateToSessionResult 期望格式
+  const sortedVotes = [...allVotes].sort((a, b) => b.count - a.count);
+  const breakdownForResult = sortedVotes.map(v => ({
+    nickname:       `${v.restaurantName}（${v.count} 票）`,
+    restaurantName: v.count === winner.count && v.restaurantId === winner.restaurantId ? '✓ 当选' : '',
+    isWinner:       v.restaurantId === winner.restaurantId,
+  }));
+
+  if (isTie) showToast('平局！随机选出了胜者', 'info');
+
+  navigateToSessionResult(winner.restaurantName, winner.count, breakdownForResult);
 }
 
 // ── onEnterMultiplayer ─────────────────────────────────────────────

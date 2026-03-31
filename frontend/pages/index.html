@@ -1292,12 +1292,35 @@
   </div>
 </div>
 
-<!-- ══ 投票决策页（Story 6.10-new 填充内容）══════════════════════ -->
+<!-- ══ 投票决策页（Story 6.10-new）══════════════════════════════ -->
 <div class="app-page hidden" id="page-vote">
-  <div class="content-wrap" style="max-width:600px;text-align:center;padding:60px 20px">
-    <div style="font-size:36px;margin-bottom:16px">🗳️</div>
-    <p style="color:#6366f1;font-weight:600;font-size:18px">投票进行中…</p>
-    <p id="page-vote-deadline" style="font-size:13px;color:#888;margin-top:8px"></p>
+  <div class="content-wrap" style="max-width:600px">
+
+    <!-- 断线重连提示 -->
+    <div id="vote-reconnect-hint" class="hidden" style="font-size:13px;color:#f59e0b;text-align:center;padding:8px;background:#fffbeb;border-radius:8px;margin-bottom:12px">
+      🔄 重连中...
+    </div>
+
+    <!-- 标题 + 会话徽章 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:20px;font-weight:700;color:#1f2937">🗳️ 多人投票</div>
+      <div style="font-size:12px;background:#e0e7ff;color:#4338ca;border-radius:20px;padding:4px 12px;font-weight:600">实时会话</div>
+    </div>
+
+    <!-- 进度 + 截止倒计时 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#f8f9ff;border-radius:12px;padding:12px 16px;margin-bottom:16px;border:1.5px solid #e0e7ff">
+      <span id="vote-progress-text" style="font-size:14px;font-weight:600;color:#6366f1">0 / 0 人已投票</span>
+      <span id="vote-deadline-countdown" style="font-size:13px;color:#6b7280"></span>
+    </div>
+
+    <!-- 候选餐厅列表 -->
+    <div id="vote-candidates-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px"></div>
+
+    <!-- 投票按钮 -->
+    <button class="btn btn-primary btn-lg btn-full" id="btn-vote-submit" disabled style="margin-bottom:10px">选好了，投票！</button>
+
+    <!-- 发起人「结束投票」（初始隐藏） -->
+    <button class="btn btn-secondary btn-lg btn-full hidden" id="btn-vote-close" style="color:#ef4444;border-color:#fecaca">结束投票（提前公布结果）</button>
   </div>
 </div>
 
