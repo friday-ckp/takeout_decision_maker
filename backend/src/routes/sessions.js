@@ -14,7 +14,7 @@ router.post('/:token/join', optionalAuth, c.joinSession);
 
 // 以下需要会话发起人身份
 router.post('/:token/start',   requireAuth, c.startSession);
-router.post('/:token/confirm', c.confirmSession);
+router.post('/:token/confirm', requireAuth, c.confirmSession);
 router.post('/:token/replay',  requireAuth, c.replaySession);
 
 // 投票（Story 6.9-new）
