@@ -1,50 +1,54 @@
 /**
  * 多人会话 Controller
- * Stories: 6.2 / 6.4 / 6.7 / 6.8 / 6.11
+ * Stories: 6.2-v2 / 6.4 / 6.7 / 6.8 / 6.11
  */
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../models/db');
 const { success, fail } = require('../utils/response');
-const { broadcast, startSpinRound } = require('../websocket/server');
+const { broadcast } = require('../websocket/server');
 
-// ── 创建会话 (Story 6.2) ──────────────────────────────────────────
+// ── 创建会话 (Story 6.2-v2) ───────────────────────────────────────
 async function createSession(req, res, next) {
   try {
     const userId = req.userId;
-    const { mode } = req.body;
+    const { selectedRestaurantIds, deadlineAt } = req.body;
 
-    if (!mode || !['wheel', 'minesweeper'].includes(mode)) {
-      return fail(res, 40001, 'mode 必须为 wheel 或 minesweeper');
+    // ── 参数校验：餐厅数量 ────────────────────────────────────────
+    if (!Array.isArray(selectedRestaurantIds) || selectedRestaurantIds.length < 2) {
+      return fail(res, 40002, '至少选择2家餐厅');
+    }
+    if (selectedRestaurantIds.length > 20) {
+      return fail(res, 40004, '最多选择20家餐厅');
     }
 
-    // 获取候选餐厅（排除拉黑）
-    const [candidates] = await pool.query(
-      `SELECT r.id, r.name, r.category,
-              CASE WHEN urr.relation_type = 'favorite' THEN 1 ELSE 0 END AS isFavorite
-       FROM restaurants r
-       LEFT JOIN user_restaurant_relations urr
-         ON urr.restaurant_id = r.id AND urr.user_id = ? AND urr.relation_type = 'favorite'
-       WHERE r.user_id = ? AND r.is_deleted = 0
-         AND r.id NOT IN (
-           SELECT restaurant_id FROM user_restaurant_relations
-           WHERE user_id = ? AND relation_type = 'blocked'
-         )`,
-      [userId, userId, userId]
+    // ── 参数校验：截止时间 ────────────────────────────────────────
+    if (!deadlineAt) {
+      return fail(res, 40003, '截止时间不能为空');
+    }
+    const deadlineDate = new Date(deadlineAt);
+    if (isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) {
+      return fail(res, 40003, '截止时间必须晚于当前时间');
+    }
+
+    // ── 校验餐厅归属：必须全部属于该用户且未删除 ─────────────────
+    const idList = selectedRestaurantIds.map(Number);
+    const placeholders = idList.map(() => '?').join(',');
+    const [validRows] = await pool.query(
+      `SELECT id, name, category FROM restaurants
+       WHERE id IN (${placeholders}) AND user_id = ? AND is_deleted = 0`,
+      [...idList, userId]
     );
 
-    if (candidates.length < 2) {
-      return fail(res, 40002, '候选餐厅不足2家，无法创建多人会话');
+    if (validRows.length !== idList.length) {
+      return fail(res, 40005, '包含无效的餐厅ID');
     }
 
-    // 构建展开后权重数组（收藏2倍）
-    const snapshot = [];
-    candidates.forEach(r => {
-      const item = { id: r.id, name: r.name, category: r.category || '' };
-      snapshot.push(item);
-      if (r.isFavorite) {
-        snapshot.push(item); // 收藏出现2次
-      }
-    });
+    // ── 构建候选快照（原始列表，不展开权重） ─────────────────────
+    const snapshot = validRows.map(r => ({
+      id: r.id,
+      name: r.name,
+      category: r.category || '',
+    }));
 
     const shareToken = uuidv4().replace(/-/g, '');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -54,9 +58,10 @@ async function createSession(req, res, next) {
       await conn.beginTransaction();
 
       const [ins] = await conn.query(
-        `INSERT INTO decision_sessions (host_user_id, share_token, mode, candidate_snapshot, status, expires_at)
-         VALUES (?, ?, ?, ?, 'waiting', ?)`,
-        [userId, shareToken, mode, JSON.stringify(snapshot), expiresAt]
+        `INSERT INTO decision_sessions
+           (host_user_id, share_token, candidate_snapshot, status, expires_at, deadline_at)
+         VALUES (?, ?, ?, 'waiting', ?, ?)`,
+        [userId, shareToken, JSON.stringify(snapshot), expiresAt, deadlineDate]
       );
       const sessionId = ins.insertId;
 
@@ -70,7 +75,12 @@ async function createSession(req, res, next) {
       );
 
       await conn.commit();
-      return success(res, { shareToken, sessionId, hostUserId: userId, expiresAt: expiresAt.toISOString() }, 'ok', 201);
+      return success(res, {
+        shareToken,
+        sessionId,
+        expiresAt: expiresAt.toISOString(),
+        deadlineAt: deadlineDate.toISOString(),
+      }, 'ok', 201);
     } catch (e) {
       await conn.rollback();
       throw e;
@@ -116,9 +126,9 @@ async function getSessionState(req, res, next) {
     return success(res, {
       sessionId: session.id,
       shareToken: session.share_token,
-      mode: session.mode,
       status: session.status,
       expiresAt: session.expires_at,
+      deadlineAt: session.deadline_at || null,
       participants,
       candidateSnapshot,
     });
@@ -255,15 +265,8 @@ async function startSession(req, res, next) {
 
     broadcast(token, {
       event: 'deciding_started',
-      data: { status: 'deciding', mode: session.mode, candidateSnapshot },
+      data: { status: 'deciding', deadlineAt: session.deadline_at || null, candidateSnapshot },
     });
-
-    // wheel 模式：启动投票轮次（30s 超时收集所有人结果）
-    if (session.mode === 'wheel') {
-      startSpinRound(token, session.id).catch(e =>
-        console.error('[sessions] startSpinRound failed', e.message)
-      );
-    }
 
     return success(res, { status: 'deciding' });
   } catch (e) {
@@ -302,8 +305,8 @@ async function confirmSession(req, res, next) {
         for (const p of participants) {
           await conn.query(
             `INSERT INTO decision_history (user_id, restaurant_id, restaurant_name, mode, decided_at)
-             VALUES (?, ?, ?, ?, ?)`,
-            [p.user_id, resultRestaurantId || null, resultRestaurantName, session.mode, now]
+             VALUES (?, ?, ?, 'vote', ?)`,
+            [p.user_id, resultRestaurantId || null, resultRestaurantName, now]
           );
         }
       }
@@ -371,13 +374,6 @@ async function replaySession(req, res, next) {
 
     const remainingReplays = maxReplay - (replayCount + 1);
     broadcast(token, { event: 'replay_initiated', data: { remainingReplays } });
-
-    // wheel 模式重玩：重新启动投票轮次
-    if (session.mode === 'wheel') {
-      startSpinRound(token, session.id).catch(e =>
-        console.error('[sessions] startSpinRound(replay) failed', e.message)
-      );
-    }
 
     return success(res, { remainingReplays });
   } catch (e) {
