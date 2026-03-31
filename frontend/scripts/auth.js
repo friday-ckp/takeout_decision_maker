@@ -1,5 +1,6 @@
 /**
  * Story 8.5 — 前端登录/注册页面
+ * Story 8.9 — 导航栏用户状态区域（头像 + 用户名 + 退出）
  * 职责：登录、注册、登出、JWT 存储、topnav 用户状态
  */
 
@@ -50,7 +51,7 @@ async function authRegister(name, email, password) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || '注册失败');
-  saveAuth(data.data.token, data.data.user);
+  saveAuth(data.data.token, { userId: data.data.userId, name: data.data.name, email: data.data.email });
   updateNavUserState();
   navigate('home');
 }
@@ -63,7 +64,7 @@ async function authLogin(email, password) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || '登录失败');
-  saveAuth(data.data.token, data.data.user);
+  saveAuth(data.data.token, { userId: data.data.userId, name: data.data.name });
   updateNavUserState();
   navigate('home');
 }
@@ -82,7 +83,9 @@ function updateNavUserState() {
   if (!authArea) return;
 
   if (user) {
+    const initial = (user.name || user.email || '?').charAt(0).toUpperCase();
     authArea.innerHTML = `
+      <span class="nav-avatar" aria-hidden="true">${escapeHtml(initial)}</span>
       <button class="link-btn nav-username" id="goto-profile-btn" title="查看个人信息">${escapeHtml(user.name || user.email)}</button>
       <button class="btn btn--ghost btn--sm" id="logout-btn">退出</button>
     `;
