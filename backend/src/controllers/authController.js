@@ -63,4 +63,46 @@ async function register(req, res) {
   }
 }
 
-module.exports = { register };
+// ── POST /api/auth/login ───────────────────────────────────────────────────
+async function login(req, res) {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return fail(res, 40001, '邮箱或密码不能为空', 400);
+    }
+
+    const trimmedEmail = String(email).trim().toLowerCase();
+
+    // 查找用户（is_temp=false 的正式账户）
+    const [rows] = await pool.query(
+      'SELECT id, name, email, password_hash FROM users WHERE email = ? AND is_temp = 0',
+      [trimmedEmail]
+    );
+
+    // 用户不存在或密码错误统一返回 401（防枚举攻击）
+    if (rows.length === 0) {
+      return fail(res, 40101, '邮箱或密码错误', 401);
+    }
+
+    const user = rows[0];
+    const passwordMatch = await bcrypt.compare(String(password), user.password_hash);
+    if (!passwordMatch) {
+      return fail(res, 40101, '邮箱或密码错误', 401);
+    }
+
+    // 签发 JWT
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET || 'dev-secret',
+      { expiresIn: '7d' }
+    );
+
+    return success(res, { token, userId: user.id, name: user.name });
+  } catch (err) {
+    console.error('[Auth] login error:', err.message);
+    return fail(res, 50001, '服务器内部错误', 500);
+  }
+}
+
+module.exports = { register, login };
