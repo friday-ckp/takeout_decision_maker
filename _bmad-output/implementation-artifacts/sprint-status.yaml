@@ -165,3 +165,14 @@ development_status:
   8-8-anonymous-join: done
   8-9-nav-user-status: done
   epic-8-retrospective: done
+
+  # ─────────────────────────────────────────────
+  # Epic 9: 公共餐厅池（Sprint 5）
+  # ─────────────────────────────────────────────
+  epic-9: in-progress
+  9-1-db-migration-public-pool: not-started
+  9-2-public-restaurants-api: not-started
+  9-3-restaurant-merge-api: not-started
+  9-4-frontend-public-label: not-started
+  9-5-contribute-to-public-pool: not-started
+  9-6-admin-seed-script: done
