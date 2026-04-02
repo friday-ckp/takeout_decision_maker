@@ -184,6 +184,8 @@ function clearAddForm() {
   document.querySelectorAll('#add-tags-container .chip').forEach(c => c.classList.remove('active'));
   const nameErr = document.getElementById('add-name-error');
   if (nameErr) nameErr.textContent = '';
+  const contributeCheckbox = document.getElementById('add-contribute-public');
+  if (contributeCheckbox) contributeCheckbox.checked = false;
 }
 
 // ── 提交添加餐厅 ──────────────────────────────────────────────────
@@ -195,6 +197,8 @@ async function submitAddRestaurant(e) {
   const notesInput    = document.getElementById('add-notes');
   const nameErr       = document.getElementById('add-name-error');
   const submitBtn     = document.getElementById('add-submit-btn');
+  // Story 9.5: 读取"贡献至公共池"复选框
+  const contributeCheckbox = document.getElementById('add-contribute-public');
 
   const name = nameInput?.value?.trim() || '';
   if (!name) {
@@ -213,6 +217,7 @@ async function submitAddRestaurant(e) {
       category: categoryInput?.value?.trim() || '',
       tags: [...selectedTags],
       notes: notesInput?.value?.trim() || '',
+      contributeToPublic: !!(contributeCheckbox?.checked),
     });
 
     clearAddForm();
@@ -559,6 +564,12 @@ registerPage('blacklist',   { onEnter: loadBlacklist });
 // ── 页面初始化（事件绑定在 DOM 就绪后）──────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initTagChips();
+
+  // Story 9.5: 仅登录用户显示"贡献至公共池"复选框
+  const contributeGroup = document.getElementById('add-contribute-group');
+  if (contributeGroup && localStorage.getItem('authToken')) {
+    contributeGroup.style.display = '';
+  }
 
   // 添加餐厅表单
   document.getElementById('add-restaurant-form')

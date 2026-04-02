@@ -119,6 +119,75 @@ describe('POST /api/restaurants', () => {
       .send({ name: '测试', tags: '非数组' });
     expect(res.status).toBe(400);
   });
+
+  // Story 9.5: contributeToPublic 测试
+  test('contributeToPublic=true 时 isPublic 为 true', async () => {
+    pool.query
+      .mockResolvedValueOnce([[]])                    // 同名检查：无重复
+      .mockResolvedValueOnce([{ insertId: 100 }])     // INSERT
+      .mockResolvedValueOnce([[{                      // SELECT 新记录
+        id: 100, name: '公共餐厅', category: '快餐', tags: '[]',
+        notes: '', isPublic: 1, createdAt: new Date(), updatedAt: new Date(),
+      }]]);
+
+    const res = await request(app)
+      .post('/api/restaurants')
+      .set(USER_HEADER)
+      .send({ name: '公共餐厅', tags: [], contributeToPublic: true });
+
+    expect(res.status).toBe(201);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data.isPublic).toBe(true);
+    // 验证 INSERT 中包含 is_public=1
+    const insertCall = pool.query.mock.calls[1];
+    expect(insertCall[1]).toContain(1); // isPublicVal = 1
+  });
+
+  test('contributeToPublic=false 时 isPublic 为 false', async () => {
+    pool.query
+      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 101 }])
+      .mockResolvedValueOnce([[{
+        id: 101, name: '私有餐厅', category: null, tags: '[]',
+        notes: '', isPublic: 0, createdAt: new Date(), updatedAt: new Date(),
+      }]]);
+
+    const res = await request(app)
+      .post('/api/restaurants')
+      .set(USER_HEADER)
+      .send({ name: '私有餐厅', tags: [], contributeToPublic: false });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.isPublic).toBe(false);
+  });
+
+  test('不传 contributeToPublic 时 isPublic 默认为 false', async () => {
+    pool.query
+      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 102 }])
+      .mockResolvedValueOnce([[{
+        id: 102, name: '默认餐厅', category: null, tags: '[]',
+        notes: '', isPublic: 0, createdAt: new Date(), updatedAt: new Date(),
+      }]]);
+
+    const res = await request(app)
+      .post('/api/restaurants')
+      .set(USER_HEADER)
+      .send({ name: '默认餐厅', tags: [] });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.isPublic).toBe(false);
+  });
+
+  test('contributeToPublic 为非布尔值时返回 400', async () => {
+    const res = await request(app)
+      .post('/api/restaurants')
+      .set(USER_HEADER)
+      .send({ name: '测试餐厅', tags: [], contributeToPublic: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe(40001);
+  });
 });
 
 // ── PUT /api/restaurants/:id ──────────────────────────────────────────────

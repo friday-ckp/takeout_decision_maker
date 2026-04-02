@@ -102,10 +102,11 @@ async function listPublicRestaurants(req, res, next) {
 }
 
 // ── POST /api/restaurants ─────────────────────────────────────────────────────
+// Story 9.5: 支持 contributeToPublic 参数，登录用户可贡献餐厅至公共池
 async function createRestaurant(req, res, next) {
   try {
     const userId = req.userId;
-    const { name, category = null, tags = [], notes = '' } = req.body;
+    const { name, category = null, tags = [], notes = '', contributeToPublic = false } = req.body;
 
     // 校验
     if (!name || !name.trim()) {
@@ -132,6 +133,11 @@ async function createRestaurant(req, res, next) {
       return fail(res, 40001, '备注最长500字符');
     }
 
+    if (contributeToPublic !== undefined && typeof contributeToPublic !== 'boolean') {
+      return fail(res, 40001, 'contributeToPublic 必须为布尔值');
+    }
+    const isPublicVal = contributeToPublic === true ? 1 : 0;
+
     // 同名检查
     const [existing] = await pool.query(
       'SELECT id FROM restaurants WHERE user_id = ? AND name = ? AND is_deleted = 0',
@@ -141,14 +147,16 @@ async function createRestaurant(req, res, next) {
       return fail(res, 40901, '同名餐厅已存在', 409);
     }
 
-    // 插入
+    // 插入（Story 9.5：写入 is_public 和 owner_user_id）
     const [result] = await pool.query(
-      'INSERT INTO restaurants (user_id, name, category, tags, notes) VALUES (?, ?, ?, ?, ?)',
-      [userId, name.trim(), category || null, JSON.stringify(tags), notes || '']
+      'INSERT INTO restaurants (user_id, owner_user_id, name, category, tags, notes, is_public) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [userId, userId, name.trim(), category || null, JSON.stringify(tags), notes || '', isPublicVal]
     );
 
     const [newRow] = await pool.query(
-      `SELECT id, name, category, tags, notes, created_at AS createdAt, updated_at AS updatedAt
+      `SELECT id, name, category, tags, notes, is_public AS isPublic,
+              owner_user_id AS ownerUserId,
+              created_at AS createdAt, updated_at AS updatedAt
        FROM restaurants WHERE id = ?`,
       [result.insertId]
     );
@@ -156,6 +164,7 @@ async function createRestaurant(req, res, next) {
     const restaurant = {
       ...newRow[0],
       tags: safeParseJSON(newRow[0].tags, []),
+      isPublic: !!newRow[0].isPublic,
       isFavorite: false,
     };
 
