@@ -17,7 +17,6 @@ function escapeHtml(str) {
 // ── 渲染餐厅网格 ──────────────────────────────────────────────────
 function renderRestaurantList(list) {
   const container  = document.getElementById('restaurant-list');
-  const countEl    = document.getElementById('restaurant-count');
   const emptyEl    = document.getElementById('restaurants-empty');
   const skeletonEl = document.getElementById('restaurants-skeleton');
 
@@ -25,18 +24,26 @@ function renderRestaurantList(list) {
 
   if (!list || list.length === 0) {
     container.innerHTML = '';
-    if (emptyEl)  emptyEl.classList.remove('hidden');
-    if (countEl)  countEl.textContent = '';
+    if (emptyEl) emptyEl.classList.remove('hidden');
+    const countEl = document.getElementById('restaurant-count');
+    if (countEl) countEl.textContent = '';
     return;
   }
 
   if (emptyEl) emptyEl.classList.add('hidden');
-  if (countEl) countEl.textContent = `共 ${list.length} 家餐厅`;
+  // restaurant-count 由 updateStats() 统一更新（含公共/个人分类，Story 9.4）
 
-  container.innerHTML = list.map(r => `
+  container.innerHTML = list.map(r => {
+    const isPublic   = r.source === 'public' || r.isPublic;
+    const sourceCls  = isPublic ? 'source-badge--public'   : 'source-badge--personal';
+    const sourceLabel = isPublic ? '公共' : '个人';
+    return `
     <div class="restaurant-card" data-id="${r.id}">
       <div class="restaurant-card__header">
-        <span class="restaurant-card__name">${escapeHtml(r.name)}</span>
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
+          <span class="restaurant-card__name">${escapeHtml(r.name)}</span>
+          <span class="source-badge ${sourceCls}">${sourceLabel}</span>
+        </div>
         <div style="display:flex;gap:4px;align-items:center">
           <button class="fav-btn${r.isFavorite ? ' active' : ''}" data-action="favorite" data-id="${r.id}"
                   aria-label="${r.isFavorite ? '取消收藏' : '收藏'}" title="${r.isFavorite ? '取消收藏' : '收藏'}">
@@ -73,7 +80,8 @@ function renderRestaurantList(list) {
         </div>` : ''}
       ${r.notes ? `<p class="restaurant-card__notes">${escapeHtml(r.notes)}</p>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   // 事件代理
   container.onclick = async (e) => {
@@ -120,14 +128,22 @@ async function loadRestaurants() {
 function updateStats(list) {
   const total    = list.length;
   const favorite = list.filter(r => r.isFavorite).length;
+  const publicCount   = list.filter(r => r.source === 'public' || r.isPublic).length;
+  const personalCount = total - publicCount;
 
   const statTotal    = document.getElementById('stat-total');
   const statFavorite = document.getElementById('stat-favorite');
   const statLast     = document.getElementById('stat-last');
+  const countEl      = document.getElementById('restaurant-count');
 
   if (statTotal)    statTotal.textContent    = total;
   if (statFavorite) statFavorite.textContent = favorite;
   if (statLast)     statLast.textContent     = '—';
+  if (countEl) {
+    countEl.textContent = total > 0
+      ? `共 ${total} 家（公共 ${publicCount} / 个人 ${personalCount}）`
+      : '';
+  }
 }
 
 // ── 首页「开始决策」按钮状态 ──────────────────────────────────────
