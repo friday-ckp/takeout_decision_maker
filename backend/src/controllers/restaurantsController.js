@@ -1,7 +1,23 @@
 const { pool } = require('../models/db');
 const { success, fail } = require('../utils/response');
 
+// ── 共享过滤辅助函数 ──────────────────────────────────────────────────────────
+function applyKeywordFilter(sql, params, keyword) {
+  if (keyword?.trim()) {
+    sql += ' AND r.name LIKE ?';
+    params.push(`%${keyword.trim()}%`);
+  }
+  return sql;
+}
+
+function applyTagsFilter(list, tags) {
+  if (!tags?.trim()) return list;
+  const filterTags = tags.split(',').map(t => t.trim()).filter(Boolean);
+  return list.filter(r => filterTags.every(ft => r.tags.includes(ft)));
+}
+
 // ── GET /api/restaurants ──────────────────────────────────────────────────────
+// Story 9.3: 合并个人池 + 公共池，按 id 去重（is_public=1 的用户自有餐厅只出现一次）
 async function listRestaurants(req, res, next) {
   try {
     const userId = req.userId;
@@ -10,7 +26,9 @@ async function listRestaurants(req, res, next) {
     let sql = `
       SELECT
         r.id, r.name, r.category, r.tags, r.notes,
+        r.is_public AS isPublic, r.owner_user_id AS ownerUserId,
         r.created_at AS createdAt, r.updated_at AS updatedAt,
+        CASE WHEN r.user_id = ? THEN 'personal' ELSE 'public' END AS source,
         CASE WHEN urr_fav.relation_type = 'favorite' THEN 1 ELSE 0 END AS isFavorite,
         CASE WHEN urr_blk.relation_type = 'blocked'  THEN 1 ELSE 0 END AS isBlocked
       FROM restaurants r
@@ -18,34 +36,64 @@ async function listRestaurants(req, res, next) {
         ON urr_fav.restaurant_id = r.id AND urr_fav.user_id = ? AND urr_fav.relation_type = 'favorite'
       LEFT JOIN user_restaurant_relations urr_blk
         ON urr_blk.restaurant_id = r.id AND urr_blk.user_id = ? AND urr_blk.relation_type = 'blocked'
-      WHERE r.user_id = ? AND r.is_deleted = 0
+      WHERE r.is_deleted = 0
+        AND (r.user_id = ? OR r.is_public = 1)
     `;
-    const params = [userId, userId, userId];
+    const params = [userId, userId, userId, userId];
 
-    // keyword 过滤
-    if (keyword && keyword.trim()) {
-      sql += ' AND r.name LIKE ?';
-      params.push(`%${keyword.trim()}%`);
-    }
+    sql = applyKeywordFilter(sql, params, keyword);
 
-    sql += ' ORDER BY r.created_at DESC';
+    // 个人餐厅排在公共餐厅前面
+    sql += ' ORDER BY CASE WHEN r.user_id = ? THEN 0 ELSE 1 END, r.created_at DESC';
+    params.push(userId);
 
     const [rows] = await pool.query(sql, params);
 
-    // tags 过滤（客户端二次过滤，因为 tags 存 JSON 字符串）
+    // tags 过滤（应用层过滤，因为 tags 存 JSON 字符串）
     let list = rows.map(r => ({
       ...r,
       tags: safeParseJSON(r.tags, []),
+      isPublic: !!r.isPublic,
       isFavorite: !!r.isFavorite,
       isBlocked: !!r.isBlocked,
     }));
 
-    if (tags && tags.trim()) {
-      const filterTags = tags.split(',').map(t => t.trim()).filter(Boolean);
-      list = list.filter(r =>
-        filterTags.every(ft => r.tags.includes(ft))
-      );
-    }
+    list = applyTagsFilter(list, tags);
+
+    return success(res, { total: list.length, list });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── GET /api/restaurants/public ───────────────────────────────────────────────
+// Story 9.2: 公共餐厅池读取（无需登录，最多返回 500 条）
+async function listPublicRestaurants(req, res, next) {
+  try {
+    const { keyword, tags } = req.query;
+
+    let sql = `
+      SELECT
+        r.id, r.name, r.category, r.tags, r.notes,
+        r.owner_user_id AS ownerUserId,
+        r.created_at AS createdAt, r.updated_at AS updatedAt,
+        'public' AS source
+      FROM restaurants r
+      WHERE r.is_public = 1 AND r.is_deleted = 0
+    `;
+    const params = [];
+
+    sql = applyKeywordFilter(sql, params, keyword);
+    sql += ' ORDER BY r.created_at DESC LIMIT 500';
+
+    const [rows] = await pool.query(sql, params);
+
+    let list = rows.map(r => ({
+      ...r,
+      tags: safeParseJSON(r.tags, []),
+    }));
+
+    list = applyTagsFilter(list, tags);
 
     return success(res, { total: list.length, list });
   } catch (err) {
@@ -275,19 +323,14 @@ async function toggleFavorite(req, res, next) {
     if (existing.length === 0) return fail(res, 40401, '餐厅不存在', 404);
 
     const [rel] = await pool.query(
-      `SELECT id FROM user_restaurant_relations WHERE user_id = ? AND restaurant_id = ?`,
+      'SELECT id, relation_type FROM user_restaurant_relations WHERE user_id = ? AND restaurant_id = ?',
       [userId, id]
     );
 
     if (rel.length > 0) {
-      const relRow = rel[0];
-      const [curRel] = await pool.query(
-        'SELECT relation_type FROM user_restaurant_relations WHERE id = ?',
-        [relRow.id]
-      );
-      if (curRel[0].relation_type === 'favorite') {
+      if (rel[0].relation_type === 'favorite') {
         // 已收藏 → 取消
-        await pool.query('DELETE FROM user_restaurant_relations WHERE id = ?', [relRow.id]);
+        await pool.query('DELETE FROM user_restaurant_relations WHERE id = ?', [rel[0].id]);
         return success(res, { id, isFavorite: false });
       } else {
         // 是拉黑状态，不允许同时收藏
@@ -365,7 +408,7 @@ function safeParseJSON(str, fallback) {
 }
 
 module.exports = {
-  listRestaurants, createRestaurant,
+  listRestaurants, listPublicRestaurants, createRestaurant,
   updateRestaurant, deleteRestaurant,
   listTrash, restoreRestaurant,
   importRestaurants,

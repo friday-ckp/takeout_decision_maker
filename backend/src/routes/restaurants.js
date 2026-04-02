@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const {
-  listRestaurants, createRestaurant,
+  listRestaurants, listPublicRestaurants, createRestaurant,
   updateRestaurant, deleteRestaurant,
   listTrash, restoreRestaurant,
   importRestaurants,
@@ -10,9 +10,12 @@ const {
   toggleBlock, listBlacklist,
 } = require('../controllers/restaurantsController');
 
+// Story 9.2: 公共餐厅池，无需登录
+router.get('/public', listPublicRestaurants);
+
 router.use(requireAuth);
 
-// 列表 & 新增
+// 列表 & 新增（Story 9.3: 已合并公共池 + 个人池）
 router.get('/',        listRestaurants);
 router.post('/',       createRestaurant);
 

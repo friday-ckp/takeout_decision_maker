@@ -27,11 +27,15 @@ sprints:
     points: 34
     stories: 19
   - id: sprint-4
-    status: in-progress
+    status: done
     points: 36
     stories: 15
-totalPoints: 143
-totalStories: 73
+  - id: sprint-5
+    status: not-started
+    points: 13
+    stories: 6
+totalPoints: 156
+totalStories: 79
 ---
 
 # 外卖点餐决策器 Sprint 计划
@@ -287,7 +291,7 @@ totalStories: 73
 ## Sprint 4：多人投票重设计 + 用户认证
 
 **周期：** 2026-05-11 ~ 2026-05-22（2周）
-**状态：** in-progress
+**状态：** done
 **变更来源：** sprint-change-proposal-2026-03-30.md（已批准）
 
 ### Sprint 目标
@@ -355,6 +359,48 @@ totalStories: 73
 - [ ] DB 迁移脚本可重复执行，不破坏既有数据
 
 **Sprint 4 总估点：36 pts**
+
+---
+
+## Sprint 5：公共餐厅池
+
+**周期：** 2026-04-07 ~ 2026-04-18（2周）
+**状态：** not-started
+**背景：** 用户注册后餐厅库为空，体验冷启动差；引入全局公共餐厅池，所有用户共享，降低使用门槛。
+
+### Sprint 目标
+
+建立公共餐厅池机制：平台维护一批公共餐厅，所有用户可直接使用；用户也可添加私有餐厅或将自己的餐厅贡献至公共池。决策时自动合并公共池 + 个人池。
+
+---
+
+### Story 列表
+
+#### Epic 9：公共餐厅池（全新）
+
+| Story | 标题 | 涵盖需求 | 估点 | 状态 |
+|-------|------|----------|------|------|
+| 9.1 | DB 迁移：restaurants 表增加 `is_public` 字段 + `owner_user_id` 可空 | FR-21, ARCH | 2 | not-started |
+| 9.2 | 公共餐厅读取 API（GET /api/restaurants/public） | FR-21 | 2 | not-started |
+| 9.3 | 餐厅列表 API 合并逻辑（公共池 + 个人池去重合并） | FR-21 | 2 | not-started |
+| 9.4 | 前端餐厅列表区分展示（公共/个人标签） | FR-21 | 2 | not-started |
+| 9.5 | 添加餐厅时支持选择"贡献至公共池"（仅登录用户） | FR-21 | 2 | not-started |
+| 9.6 | 管理员种子脚本：预置常见餐厅至公共池 | FR-21 | 1 | not-started |
+
+**Epic 9 小计：11 pts**
+
+---
+
+### Sprint 5 Definition of Done
+
+- [ ] 公共餐厅池独立存储，`is_public=true` 且 `owner_user_id=NULL`
+- [ ] 登录用户的餐厅列表 = 公共池 ∪ 个人私有餐厅（前端区分标签）
+- [ ] 未登录/匿名用户仅可查看公共池，不可添加
+- [ ] 登录用户添加餐厅时可选择"仅自己可见"或"贡献公共"
+- [ ] 决策（转盘/扫雷/投票）候选池自动包含公共餐厅
+- [ ] 种子脚本可重复执行，预置 ≥10 家常见餐厅
+
+**Sprint 5 总估点：11 pts**
 
 ---
 
