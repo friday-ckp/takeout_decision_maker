@@ -189,10 +189,16 @@ async function updateRestaurant(req, res, next) {
     if (notes && notes.length > 500) return fail(res, 40001, '备注最长500字符');
 
     const [existing] = await pool.query(
-      'SELECT id FROM restaurants WHERE id = ? AND user_id = ? AND is_deleted = 0',
-      [id, userId]
+      'SELECT id, is_public, user_id FROM restaurants WHERE id = ? AND is_deleted = 0',
+      [id]
     );
     if (existing.length === 0) return fail(res, 40401, '餐厅不存在', 404);
+    if (existing[0].is_public && existing[0].user_id !== userId) {
+      return fail(res, 40301, '公共餐厅不支持个人编辑', 403);
+    }
+    if (!existing[0].is_public && existing[0].user_id !== userId) {
+      return fail(res, 40401, '餐厅不存在', 404);
+    }
 
     // 同名检查（排除自身）
     const [dup] = await pool.query(
