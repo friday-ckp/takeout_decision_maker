@@ -1505,6 +1505,14 @@
           <label class="form-label" for="add-notes">备注（选填）</label>
           <textarea class="form-input" id="add-notes" rows="3" placeholder="如：楼下的、周末休息…" maxlength="500" style="min-height:80px"></textarea>
         </div>
+        <!-- Story 9.5: 贡献至公共池（仅登录用户可见）-->
+        <div class="form-group" id="add-contribute-group" style="display:none">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+            <input type="checkbox" id="add-contribute-public" style="width:16px;height:16px;cursor:pointer" />
+            贡献至公共池
+            <span style="color:#aaa;font-size:12px">（所有用户均可见此餐厅）</span>
+          </label>
+        </div>
         <button type="submit" class="btn btn-primary btn-full btn-lg" id="add-submit-btn">保存</button>
       </div>
     </form>
