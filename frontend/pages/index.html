@@ -186,6 +186,20 @@
 }
 .restaurant-card__tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .restaurant-card__notes { font-size: var(--font-size-sm); color: var(--color-text-secondary); line-height: 1.5; }
+/* ── 来源标签（Story 9.4）── */
+.source-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 600; line-height: 1.4; flex-shrink: 0;
+}
+.source-badge--public {
+  background: rgba(249,115,22,0.12); color: var(--color-accent);
+  border: 1px solid rgba(249,115,22,0.35);
+}
+.source-badge--personal {
+  background: rgba(107,114,128,0.10); color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
 .fav-btn {
   width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
   border-radius: 50%; color: #ddd; flex-shrink: 0;
