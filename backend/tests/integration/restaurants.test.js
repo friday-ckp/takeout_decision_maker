@@ -309,10 +309,9 @@ describe('POST /api/restaurants/:id/favorite (收藏/取消收藏)', () => {
 
   test('取消收藏', async () => {
     pool.query
-      .mockResolvedValueOnce([[{ id: 1 }]])            // 存在性检查
-      .mockResolvedValueOnce([[{ id: 10 }]])            // 已有关系存在
-      .mockResolvedValueOnce([[{ relation_type: 'favorite' }]])  // 当前是收藏
-      .mockResolvedValueOnce([{}]);                    // DELETE
+      .mockResolvedValueOnce([[{ id: 1 }]])                             // 存在性检查
+      .mockResolvedValueOnce([[{ id: 10, relation_type: 'favorite' }]]) // 合并关系查询
+      .mockResolvedValueOnce([{}]);                                     // DELETE
 
     const res = await request(app)
       .post('/api/restaurants/1/favorite')
@@ -324,9 +323,8 @@ describe('POST /api/restaurants/:id/favorite (收藏/取消收藏)', () => {
 
   test('已拉黑状态尝试收藏返回 409', async () => {
     pool.query
-      .mockResolvedValueOnce([[{ id: 1 }]])  // 存在性检查
-      .mockResolvedValueOnce([[{ id: 10 }]]) // 已有关系
-      .mockResolvedValueOnce([[{ relation_type: 'blocked' }]]); // 当前是拉黑
+      .mockResolvedValueOnce([[{ id: 1 }]])                            // 存在性检查
+      .mockResolvedValueOnce([[{ id: 10, relation_type: 'blocked' }]]); // 合并关系查询
 
     const res = await request(app)
       .post('/api/restaurants/1/favorite')
@@ -399,5 +397,46 @@ describe('GET /api/restaurants/blacklist', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.list).toHaveLength(1);
     expect(res.body.data.total).toBe(1);
+  });
+});
+
+// ── GET /api/restaurants/public（Story 9.2）────────────────────────────────
+describe('GET /api/restaurants/public', () => {
+  test('无需登录即可访问（不携带 Authorization）', async () => {
+    pool.query.mockResolvedValueOnce([[
+      { id: 3, name: '公共麻辣烫', category: '川菜', tags: '["辣"]', notes: '',
+        ownerUserId: null, source: 'public', createdAt: new Date(), updatedAt: new Date() },
+    ]]);
+    const res = await request(app).get('/api/restaurants/public');
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data.list).toHaveLength(1);
+    expect(res.body.data.total).toBe(1);
+  });
+
+  test('返回字段包含 source = public', async () => {
+    pool.query.mockResolvedValueOnce([[
+      { id: 4, name: '公共粥铺', category: '粥', tags: '["清淡"]', notes: '',
+        ownerUserId: null, source: 'public', createdAt: new Date(), updatedAt: new Date() },
+    ]]);
+    const res = await request(app).get('/api/restaurants/public');
+    expect(res.status).toBe(200);
+    expect(res.body.data.list[0].source).toBe('public');
+    expect(Array.isArray(res.body.data.list[0].tags)).toBe(true);
+  });
+
+  test('公共餐厅为空时返回空列表', async () => {
+    pool.query.mockResolvedValueOnce([[]]);
+    const res = await request(app).get('/api/restaurants/public');
+    expect(res.status).toBe(200);
+    expect(res.body.data.list).toHaveLength(0);
+    expect(res.body.data.total).toBe(0);
+  });
+
+  test('DB 异常时返回 500', async () => {
+    pool.query.mockRejectedValueOnce(new Error('DB connection lost'));
+    const res = await request(app).get('/api/restaurants/public');
+    expect(res.status).toBe(500);
+    expect(res.body.code).toBe(50001);
   });
 });

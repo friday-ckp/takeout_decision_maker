@@ -185,7 +185,7 @@ describe('listPublicRestaurants: 公共餐厅过滤', () => {
     expect(result.map(r => r.id)).toEqual([4]);
   });
 
-  test('结果中每条记录 source = public', () => {
+  test('用户自己贡献的公共餐厅 source = personal，其余公共餐厅 source = public', () => {
     const rows = makeRows().map(r => ({ ...r, isDeleted: 0 }));
     const publicRows = getPublicOnly(rows);
     publicRows.forEach(r => {
