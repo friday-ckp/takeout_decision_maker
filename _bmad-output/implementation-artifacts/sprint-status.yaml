@@ -1,5 +1,5 @@
 # generated: 2026-03-30
-# last_updated: 2026-04-01
+# last_updated: 2026-04-02
 # project: takeout_decision_maker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -170,9 +170,9 @@ development_status:
   # Epic 9: 公共餐厅池（Sprint 5 全新）
   # ─────────────────────────────────────────────
   epic-9: in-progress
-  9-1-public-restaurant-db-migration: in-progress
-  9-2-public-restaurants-api: backlog
-  9-3-restaurant-merge-api: backlog
+  9-1-public-restaurant-db-migration: done
+  9-2-public-restaurants-api: done
+  9-3-restaurant-merge-api: done
   9-4-restaurant-list-ui-tags: backlog
   9-5-contribute-to-public-pool: backlog
   9-6-seed-public-restaurants: done
