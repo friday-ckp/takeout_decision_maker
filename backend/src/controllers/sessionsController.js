@@ -30,12 +30,12 @@ async function createSession(req, res, next) {
       return fail(res, 40003, '截止时间必须晚于当前时间');
     }
 
-    // ── 校验餐厅归属：必须全部属于该用户且未删除 ─────────────────
+    // ── 校验餐厅归属：属于该用户或公共餐厅，且未删除 ────────────
     const idList = selectedRestaurantIds.map(Number);
     const placeholders = idList.map(() => '?').join(',');
     const [validRows] = await pool.query(
       `SELECT id, name, category FROM restaurants
-       WHERE id IN (${placeholders}) AND user_id = ? AND is_deleted = 0`,
+       WHERE id IN (${placeholders}) AND (user_id = ? OR is_public = 1) AND is_deleted = 0`,
       [...idList, userId]
     );
 

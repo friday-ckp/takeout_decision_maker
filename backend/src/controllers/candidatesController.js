@@ -43,7 +43,7 @@ async function queryBaseCandidates(userId) {
        ON urr_fav.restaurant_id = r.id AND urr_fav.user_id = ? AND urr_fav.relation_type = 'favorite'
      LEFT JOIN user_restaurant_relations urr_black
        ON urr_black.restaurant_id = r.id AND urr_black.user_id = ? AND urr_black.relation_type = 'blocked'
-     WHERE r.user_id = ? AND r.is_deleted = 0 AND urr_black.id IS NULL
+     WHERE (r.user_id = ? OR r.is_public = 1) AND r.is_deleted = 0 AND urr_black.id IS NULL
      ORDER BY r.created_at DESC`,
     [userId, userId, userId]
   );
